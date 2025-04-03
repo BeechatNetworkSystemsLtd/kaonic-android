@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace 'network.beechat.kaonic.sampleapp'
-    compileSdk 35
+    compileSdk 34
 
     defaultConfig {
         applicationId "network.beechat.kaonic.sampleapp"
