@@ -1,7 +1,7 @@
 plugins {
+    id 'org.mozilla.rust-android-gradle.rust-android'
     id 'com.android.library'
     id 'maven-publish'
-    id 'org.mozilla.rust-android-gradle.rust-android' version '0.9.6'
     alias(libs.plugins.jetbrains.kotlin.android)
 }
 
@@ -39,16 +39,16 @@ cargo {
     verbose
 }
 
-project.afterEvaluate {
-    tasks.withType(com.nishtahir.CargoBuildTask).each { buildTask ->
-        tasks.withType(com.android.build.gradle.tasks.MergeSourceSetFolders).configureEach { mergeTask ->
-            mergeTask.inputs.dir(
-                    layout.buildDirectory.dir("rustJniLibs" + File.separator + buildTask.toolchain.folder)
-            )
-            mergeTask.dependsOn(buildTask)
-        }
-    }
-}
+//project.afterEvaluate {
+//    tasks.withType(com.nishtahir.CargoBuildTask).each { buildTask ->
+//        tasks.withType(com.android.build.gradle.tasks.MergeSourceSetFolders).configureEach { mergeTask ->
+//            mergeTask.inputs.dir(
+//                    layout.buildDirectory.dir("rustJniLibs" + File.separator + buildTask.toolchain.folder)
+//            )
+//            mergeTask.dependsOn(buildTask)
+//        }
+//    }
+//}
 
 dependencies {
     implementation libs.androidx.core.ktx

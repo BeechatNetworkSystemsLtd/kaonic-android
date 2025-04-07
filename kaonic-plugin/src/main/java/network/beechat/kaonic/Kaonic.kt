@@ -6,10 +6,8 @@ class Kaonic(context: Context) {
 
     companion object {
         init {
-            System.loadLibrary("kaonic")
-            libraryInit()
+//            System.loadLibrary("kaonic")
         }
 
-        @JvmStatic external fun libraryInit()
     }
 }
