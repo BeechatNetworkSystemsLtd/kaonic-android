@@ -6,7 +6,7 @@ class Kaonic(context: Context) {
 
     companion object {
         init {
-//            System.loadLibrary("kaonic")
+           System.loadLibrary("kaonic")
         }
 
     }
