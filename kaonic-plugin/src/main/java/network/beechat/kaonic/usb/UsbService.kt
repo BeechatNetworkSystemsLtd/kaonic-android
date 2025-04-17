@@ -16,7 +16,6 @@ class UsbService(private val usbManager: UsbManager) : SerialInputOutputManager.
 
     fun getUsbPorts(): List<UsbSerialPort> {
         val drivers = UsbSerialProber.getDefaultProber().findAllDrivers(usbManager)
-        usbManager.deviceList.values.first().
         val ports = arrayListOf<UsbSerialPort>()
         drivers.forEach {
             ports.addAll(it.ports)
