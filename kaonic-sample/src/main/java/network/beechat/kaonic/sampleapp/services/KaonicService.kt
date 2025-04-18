@@ -1,11 +1,11 @@
 package network.beechat.kaonic.sampleapp.services
 
-import network.beechat.kaonic.libsource.Kaonic
+import network.beechat.kaonic.libsource.KaonicLib
 
 object KaonicService {
-    private lateinit var kaonic: Kaonic
+    private lateinit var kaonic: KaonicLib
 
-    fun init(kaonic: Kaonic) {
+    fun init(kaonic: KaonicLib){
         this.kaonic = kaonic
 
     }

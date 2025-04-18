@@ -1,4 +1,4 @@
-package network.beechat.kaonic.communication;
+package network.beechat.kaonic.chat;
 
 
 import network.beechat.kaonic.models.Message;

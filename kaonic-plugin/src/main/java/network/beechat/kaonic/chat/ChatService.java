@@ -1,24 +1,24 @@
-package network.beechat.kaonic.communication;
+package network.beechat.kaonic.chat;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import network.beechat.kaonic.libsource.Kaonic;
+import network.beechat.kaonic.libsource.KaonicLib;
 import network.beechat.kaonic.models.FileMessage;
 import network.beechat.kaonic.models.LocationMessage;
 import network.beechat.kaonic.models.Message;
 import network.beechat.kaonic.models.Node;
 import network.beechat.kaonic.models.TextMessage;
 
-public class CommunicationService {
+public class ChatService {
     private final Node me;
-    private final Kaonic kaonic;
+    private final KaonicLib kaonic;
     // chatCallback for all chats with all users
     private ChatCallback chatCallback;
     private final ArrayList<Message> messages = new ArrayList<>();
 
-    public CommunicationService(Node me, Kaonic kaonic) {
+    public ChatService(Node me, KaonicLib kaonic) {
         this.me = me;
         this.kaonic = kaonic;
     }
