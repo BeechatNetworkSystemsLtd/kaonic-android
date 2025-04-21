@@ -1,7 +1,8 @@
 package network.beechat.kaonic.communication;
 
-import network.beechat.kaonic.models.DataPacket;
+import network.beechat.kaonic.models.Node;
+import network.beechat.kaonic.models.datapacket.DataPacket;
 
 public interface DataPacketListener {
-    void onPacket(DataPacket packet);
+    void onPacket(DataPacket packet, Node sender);
 }

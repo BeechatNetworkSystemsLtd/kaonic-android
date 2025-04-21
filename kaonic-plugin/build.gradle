@@ -56,6 +56,7 @@ dependencies {
     implementation libs.material
     implementation libs.core.ktx
     implementation libs.usb.serial.for1.android
+    implementation libs.jackson.dataformat.cbor
 
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
