@@ -17,6 +17,10 @@ import network.beechat.kaonic.libsource.KaonicLib;
 import network.beechat.kaonic.models.KaonicEvent;
 import network.beechat.kaonic.models.KaonicEventData;
 import network.beechat.kaonic.models.KaonicEventType;
+import network.beechat.kaonic.models.calls.CallAnswerEvent;
+import network.beechat.kaonic.models.calls.CallNewEvent;
+import network.beechat.kaonic.models.calls.CallRejectEvent;
+import network.beechat.kaonic.models.calls.CallVoiceEvent;
 import network.beechat.kaonic.models.messages.MessageFileChunkEvent;
 import network.beechat.kaonic.models.messages.MessageFileStartEvent;
 import network.beechat.kaonic.models.messages.MessageLocationEvent;
@@ -49,14 +53,17 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
     public void transmitData(KaonicEvent kaonicEvent) {
         try {
             String jsonString = objectMapper.writeValueAsString(kaonicEvent);
+            Log.i(TAG, "\uD83D\uDD3C Kaonic data sent:" + jsonString);
             kaonicLib.transmit(jsonString);
         } catch (JsonProcessingException e) {
+            Log.e(TAG, Objects.requireNonNull(e.getMessage()));
             throw new RuntimeException(e);
         }
     }
 
     @Override
     public void onDataReceive(String dataJson) {
+        Log.i(TAG, "\uD83D\uDD3D Kaonic data received:" + dataJson);
         try {
             JSONObject eventObject = new JSONObject(dataJson);
             String eventType = eventObject.getString("type");
@@ -77,10 +84,24 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
                 case KaonicEventType.MESSAGE_FILE_CHUNK:
                     kaonicEventData = objectMapper.readValue(eventData.toString(),
                             MessageFileChunkEvent.class);
+                case KaonicEventType.CALL_NEW:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(),
+                            CallNewEvent.class);
+                case KaonicEventType.CALL_ANSWER:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(),
+                            CallAnswerEvent.class);
+                case KaonicEventType.CALL_VOICE:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(),
+                            CallVoiceEvent.class);
+                case KaonicEventType.CALL_REJECT:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(),
+                            CallRejectEvent.class);
             }
             if (kaonicEventData != null) {
                 KaonicEvent event = new KaonicEvent(eventType, address, timestamp);
                 event.data = kaonicEventData;
+
+                Log.i(TAG, "\uD83D\uDCDA onEventReceived called");
                 eventListener.onEventReceived(event);
             }
         } catch (JSONException e) {

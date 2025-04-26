@@ -1,4 +1,6 @@
 package network.beechat.kaonic.models.calls;
 
-public class CallAnswerEvent {
+import network.beechat.kaonic.models.KaonicEventData;
+
+public class CallAnswerEvent extends KaonicEventData {
 }
