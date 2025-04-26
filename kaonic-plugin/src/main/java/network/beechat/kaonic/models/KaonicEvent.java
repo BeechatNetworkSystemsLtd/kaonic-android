@@ -12,5 +12,12 @@ public class KaonicEvent<T extends KaonicEventData> {
         this.address = address;
         this.timestamp = timestamp;
     }
+
+    public KaonicEvent(String type, String address, long timestamp, T data) {
+        this.type = type;
+        this.address = address;
+        this.timestamp = timestamp;
+        this.data = data;
+    }
 }
 

@@ -1,19 +1,21 @@
 package network.beechat.kaonic.models;
 
-
 public interface KaonicEventType {
     /// messages
     String MESSAGE_TEXT = "text";
     String MESSAGE_LOCATION = "location";
     String MESSAGE_FILE_START = "file_start";
     String MESSAGE_FILE_CHUNK = "file_chunk";
+    String[] messageEvents = new String[]{MESSAGE_TEXT, MESSAGE_LOCATION, MESSAGE_FILE_START, MESSAGE_FILE_CHUNK};
 
     ///  calls
     String CALL_NEW = "new_call";
     String CALL_ANSWER = "call_answer";
     String CALL_REJECT = "call_reject";
     String CALL_VOICE = "call_voice";
+    String[] callEvents = new String[]{CALL_NEW, CALL_ANSWER, CALL_REJECT, CALL_VOICE};
 
     /// other
+    String NODE_FOUND = "node_found";
 
 }

@@ -17,6 +17,7 @@ import network.beechat.kaonic.libsource.KaonicLib;
 import network.beechat.kaonic.models.KaonicEvent;
 import network.beechat.kaonic.models.KaonicEventData;
 import network.beechat.kaonic.models.KaonicEventType;
+import network.beechat.kaonic.models.NodeFoundEvent;
 import network.beechat.kaonic.models.calls.CallAnswerEvent;
 import network.beechat.kaonic.models.calls.CallNewEvent;
 import network.beechat.kaonic.models.calls.CallRejectEvent;
@@ -50,7 +51,13 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
         this.eventListener = null;
     }
 
-    public void transmitData(KaonicEvent kaonicEvent) {
+    public void sendMessage(String address, String message) {
+        transmitData(new KaonicEvent(KaonicEventType.MESSAGE_TEXT,
+                address, System.currentTimeMillis(),
+                new MessageTextEvent(address, message)));
+    }
+
+    private void transmitData(KaonicEvent kaonicEvent) {
         try {
             String jsonString = objectMapper.writeValueAsString(kaonicEvent);
             Log.i(TAG, "\uD83D\uDD3C Kaonic data sent:" + jsonString);
@@ -72,30 +79,24 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
             JSONObject eventData = eventObject.getJSONObject("data");
             KaonicEventData kaonicEventData = null;
             switch (eventType) {
+                case KaonicEventType.NODE_FOUND:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), NodeFoundEvent.class);
                 case KaonicEventType.MESSAGE_TEXT:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(),
-                            MessageTextEvent.class);
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), MessageTextEvent.class);
                 case KaonicEventType.MESSAGE_LOCATION:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(),
-                            MessageLocationEvent.class);
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), MessageLocationEvent.class);
                 case KaonicEventType.MESSAGE_FILE_START:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(),
-                            MessageFileStartEvent.class);
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), MessageFileStartEvent.class);
                 case KaonicEventType.MESSAGE_FILE_CHUNK:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(),
-                            MessageFileChunkEvent.class);
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), MessageFileChunkEvent.class);
                 case KaonicEventType.CALL_NEW:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(),
-                            CallNewEvent.class);
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallNewEvent.class);
                 case KaonicEventType.CALL_ANSWER:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(),
-                            CallAnswerEvent.class);
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallAnswerEvent.class);
                 case KaonicEventType.CALL_VOICE:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(),
-                            CallVoiceEvent.class);
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallVoiceEvent.class);
                 case KaonicEventType.CALL_REJECT:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(),
-                            CallRejectEvent.class);
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallRejectEvent.class);
             }
             if (kaonicEventData != null) {
                 KaonicEvent event = new KaonicEvent(eventType, address, timestamp);
