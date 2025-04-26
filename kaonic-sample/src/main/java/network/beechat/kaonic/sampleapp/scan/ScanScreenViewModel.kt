@@ -2,6 +2,7 @@ package network.beechat.kaonic.sampleapp.scan
 
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
+import network.beechat.kaonic.storage.SecureStorageHelper
 
 class ScanScreenViewModel : ViewModel(){
     private val _nodes = mutableStateListOf<String>()

@@ -57,6 +57,7 @@ dependencies {
     implementation libs.core.ktx
     implementation libs.usb.serial.for1.android
     implementation libs.jackson.dataformat.cbor
+    implementation libs.androidx.security.crypto
 
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit

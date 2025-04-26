@@ -9,6 +9,6 @@ class SampleApp: Application() {
         super.onCreate()
 
         /// Kaonic plugin init
-        KaonicService.init(KaonicLib.getInstance(applicationContext))
+//        KaonicService.init(KaonicLib.getInstance(applicationContext))
     }
 }
