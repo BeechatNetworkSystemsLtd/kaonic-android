@@ -1,25 +1,33 @@
 package network.beechat.kaonic.communication;
 
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.io.IOException;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.Objects;
 
 import network.beechat.kaonic.libsource.KaonicDataChannelListener;
 import network.beechat.kaonic.libsource.KaonicLib;
-import network.beechat.kaonic.models.Node;
-import network.beechat.kaonic.models.datapacket.DataPacket;
-import network.beechat.kaonic.models.datapacket.DataPacketType;
-import network.beechat.kaonic.models.datapacket.messages.FileChunkMessagePacket;
-import network.beechat.kaonic.models.datapacket.messages.FileStartMessagePacket;
-import network.beechat.kaonic.models.datapacket.messages.LocationMessagePacket;
-import network.beechat.kaonic.models.datapacket.messages.TextMessagePacket;
+import network.beechat.kaonic.models.KaonicEvent;
+import network.beechat.kaonic.models.KaonicEventData;
+import network.beechat.kaonic.models.KaonicEventType;
+import network.beechat.kaonic.models.messages.MessageFileChunkEvent;
+import network.beechat.kaonic.models.messages.MessageFileStartEvent;
+import network.beechat.kaonic.models.messages.MessageLocationEvent;
+import network.beechat.kaonic.models.messages.MessageTextEvent;
 
 public class LibCommunicationHandler implements KaonicDataChannelListener {
+    final private String TAG = "LibCommunicationHandler";
 
     final private @NonNull KaonicLib kaonicLib;
-    private DataPacketListener packetListener;
+    final private ObjectMapper objectMapper = new ObjectMapper();
+    private KaonicEventListener eventListener;
 
     public LibCommunicationHandler(@NonNull KaonicLib kaonicLib) {
         this.kaonicLib = kaonicLib;
@@ -30,53 +38,56 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
         kaonicLib.removeChannelListener();
     }
 
-    public void setPacketListener(DataPacketListener packetListener) {
-        this.packetListener = packetListener;
+    public void setEventListener(KaonicEventListener eventListener) {
+        this.eventListener = eventListener;
     }
 
     public void removePacketListener() {
-        this.packetListener = null;
+        this.eventListener = null;
     }
 
-    public void transmitData(String address, DataPacket dataPacket) {
-        byte[] cborData;
+    public void transmitData(KaonicEvent kaonicEvent) {
         try {
-            cborData = CborParser.getInstance().toBytes(dataPacket);
+            String jsonString = objectMapper.writeValueAsString(kaonicEvent);
+            kaonicLib.transmit(jsonString);
         } catch (JsonProcessingException e) {
-            cborData = new byte[0];
+            throw new RuntimeException(e);
         }
-
-        if (cborData.length == 0) return;
-
-        kaonicLib.transmit(address, cborData);
     }
 
     @Override
-    public void onDataReceive(@NonNull byte[] bytes, String address) {
-        if (bytes.length < 1) return;
-        int packetType = bytes[1];
-        DataPacket packet = null;
+    public void onDataReceive(String dataJson) {
         try {
-            switch (packetType) {
-                case DataPacketType.TEXT_MESSAGE:
-                    packet = CborParser.getInstance().toObj(bytes, TextMessagePacket.class);
-                    break;
-                case DataPacketType.LOCATION_MESSAGE:
-                    packet = CborParser.getInstance().toObj(bytes, LocationMessagePacket.class);
-                    break;
-                case DataPacketType.FILE_START_MESSAGE:
-                    packet = CborParser.getInstance().toObj(bytes, FileStartMessagePacket.class);
-                    break;
-                case DataPacketType.FILE_CHUNK_MESSAGE:
-                    packet = CborParser.getInstance().toObj(bytes, FileChunkMessagePacket.class);
-                    break;
+            JSONObject eventObject = new JSONObject(dataJson);
+            String eventType = eventObject.getString("type");
+            String address = eventObject.getString("address");
+            long timestamp = eventObject.getLong("timestamp");
+            JSONObject eventData = eventObject.getJSONObject("data");
+            KaonicEventData kaonicEventData = null;
+            switch (eventType) {
+                case KaonicEventType.MESSAGE_TEXT:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(),
+                            MessageTextEvent.class);
+                case KaonicEventType.MESSAGE_LOCATION:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(),
+                            MessageLocationEvent.class);
+                case KaonicEventType.MESSAGE_FILE_START:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(),
+                            MessageFileStartEvent.class);
+                case KaonicEventType.MESSAGE_FILE_CHUNK:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(),
+                            MessageFileChunkEvent.class);
             }
-        } catch (IOException e) {
+            if (kaonicEventData != null) {
+                KaonicEvent event = new KaonicEvent(eventType, address, timestamp);
+                event.data = kaonicEventData;
+                eventListener.onEventReceived(event);
+            }
+        } catch (JSONException e) {
+            Log.e(TAG, Objects.requireNonNull(e.getMessage()));
             throw new RuntimeException(e);
-        }
-
-        if (packet != null) {
-            packetListener.onPacket(packet, new Node(address));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
         }
     }
 }
