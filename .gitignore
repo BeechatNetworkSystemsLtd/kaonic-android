@@ -7,3 +7,8 @@
 
 /local.properties
 /kaonic-plugin/kaonic/target/
+.gradle/8.11.1
+.gradle/buildOutputCleanup
+.gradle/vcs-1
+.gradle/config.properties
+.gradle/file-system.probe

@@ -14,20 +14,27 @@ public class KaonicLib {
     final private String TAG = "KaonicLib";
 
     static {
-//        System.loadLibrary("kaonic");
+        System.loadLibrary("kaonic");
+        libraryInit();
     }
 
     private static KaonicLib instance;
     private final AudioService audioService = new AudioService();
     private final SecureStorageHelper secureStorageHelper;
 
+    private final long pointer;
     private KaonicDataChannelListener channelListener;
 
     private KaonicLib(Context context) throws Exception {
+
+        pointer = this.nativeInit(context);
+
         secureStorageHelper = new SecureStorageHelper(context);
         audioService.setAudioStreamCallback(this::onAudioResult);
-        checkPrivateKey();
+
         Log.i(TAG, "KaonicLib initialized");
+
+        start(loadSecret());
     }
 
     public static synchronized KaonicLib getInstance(Context context) throws Exception {
@@ -45,14 +52,41 @@ public class KaonicLib {
         this.channelListener = null;
     }
 
-    public void transmit(String dataJson) {
-
+    public void start(String secret) {
+        if (secret != null) {
+            nativeStart(this.pointer, secret);
+        }
     }
 
-    public void kaonicDataReceived(String dataJson) {
+    public void transmit(String eventJson) {
+        if (eventJson != null) {
+            nativeTransmit(this.pointer, eventJson);
+        }
+    }
+
+    public String generate() {
+       String json = nativeGenerate(this.pointer);
+       // TODO: Parse JSON
+       return json;
+    }
+
+    private native void nativeTransmit(long ptr, String eventJson);
+
+    private native void nativeStart(long ptr, String privateKey);
+    private native void nativeStop(long ptr);
+
+    private native long nativeInit(Context context);
+    private native void nativeDestroy(long ptr);
+    private native void nativeSendAudio(long ptr, byte[] data);
+
+    private native String nativeGenerate(long ptr);
+
+    private static native void libraryInit();
+
+    private void receive(String json) {
         Log.i(TAG, "kaonicDataReceived");
         if (channelListener != null) {
-            channelListener.onDataReceive(dataJson);
+            // channelListener.onDataReceive(json);
         }
     }
 
@@ -75,23 +109,24 @@ public class KaonicLib {
 
     private void onAudioResult(int size, byte[] buffer) {
         Log.i(TAG, "onAudioResult");
-        //kaonic.feedAudio()
+        nativeSendAudio(this.pointer, buffer);
     }
 
-    private void checkPrivateKey() {
+    private String loadSecret() {
         Log.i(TAG, "checkPrivateKey");
+        String secret = null;
         try {
-            String PRIVATE_KEY_TAG = "KAONIC_PRIVATE_KEY";
-            String key = secureStorageHelper.get(PRIVATE_KEY_TAG);
-            if (key == null) {
-                Log.i(TAG, "private key is null. Request kaonic to generate");
-                String privateKey = ""; /// kaonic.generateKey()
-                Log.i(TAG, "private key generated");
-                secureStorageHelper.put(PRIVATE_KEY_TAG, privateKey);
+            String SECRET_TAG = "KAONIC_SECRET";
+            secret = secureStorageHelper.get(SECRET_TAG);
+            if (secret == null) {
+                secret = generate();
+                secureStorageHelper.put(SECRET_TAG, secret);
                 Log.i(TAG, "private key stored");
             }
+
         } catch (Exception e) {
             Log.e(TAG, Objects.requireNonNull(e.getMessage()));
         }
+        return secret;
     }
 }
