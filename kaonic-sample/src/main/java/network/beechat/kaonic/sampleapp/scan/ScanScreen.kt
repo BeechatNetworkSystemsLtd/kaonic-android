@@ -16,11 +16,6 @@ fun ScanScreen(viewModel: ScanScreenViewModel, onNavigate: (String) -> Unit) {
 
     val contacts = viewModel.contacts
 
-    LaunchedEffect(Unit) {
-        /// remove this once implement contact found
-        KaonicService.emitNodeFound()
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
