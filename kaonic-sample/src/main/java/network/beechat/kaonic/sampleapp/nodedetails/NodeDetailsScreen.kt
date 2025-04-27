@@ -22,8 +22,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import network.beechat.kaonic.sampleapp.MessageItem
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,7 +33,6 @@ import androidx.compose.ui.graphics.Color
 import network.beechat.kaonic.models.KaonicEvent
 import network.beechat.kaonic.models.messages.MessageEvent
 import network.beechat.kaonic.models.messages.MessageTextEvent
-import network.beechat.kaonic.sampleapp.Message
 import network.beechat.kaonic.sampleapp.extensions.isMy
 import network.beechat.kaonic.sampleapp.extensions.timeFormatted
 
@@ -115,7 +112,7 @@ fun MessageItem(message: KaonicEvent<MessageEvent>) {
                 .padding(12.dp)
         ) {
             Text(
-                text = if (message.data is MessageTextEvent) (message.data as MessageTextEvent).message else "",
+                text = if (message.data is MessageTextEvent) (message.data as MessageTextEvent).text else "",
                 color = if (message.isMy())
                     MaterialTheme.colorScheme.onPrimary
                 else

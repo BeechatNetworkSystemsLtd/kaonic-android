@@ -26,7 +26,7 @@ class ChatService(scope: CoroutineScope) {
                 .collect { event ->
                     when (event.data) {
                         is MessageTextEvent -> handleTextMessageEvent(
-                            (event.data as MessageTextEvent).chatUuid,
+                            (event.data as MessageTextEvent).chatId,
                             event as KaonicEvent<MessageEvent>
                         )
                     }

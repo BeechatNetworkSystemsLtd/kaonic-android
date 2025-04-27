@@ -2,13 +2,10 @@ package network.beechat.kaonic.models.messages;
 
 import androidx.annotation.NonNull;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.UUID;
 
 public class MessageTextEvent extends MessageEvent {
-    public String message;
+    public String text;
 
     public MessageTextEvent() {
         super();
@@ -17,15 +14,15 @@ public class MessageTextEvent extends MessageEvent {
     public MessageTextEvent(@NonNull String address, long timestamp,
                             String id,
                             String chatUuid,
-                            String message) {
+                            String text) {
         super(address, timestamp, id, chatUuid);
-        this.message = message;
+        this.text = text;
     }
 
 
     public MessageTextEvent(@NonNull String address, long timestamp,
                             String chatUuid,
-                            String message) {
-        this(address, timestamp, UUID.randomUUID().toString(), chatUuid, message);
+                            String text) {
+        this(address, timestamp, UUID.randomUUID().toString(), chatUuid, text);
     }
 }

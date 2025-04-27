@@ -2,7 +2,7 @@ package network.beechat.kaonic.models;
 
 public interface KaonicEventType {
     /// messages
-    String MESSAGE_TEXT = "text";
+    String MESSAGE_TEXT = "Message";
     String MESSAGE_LOCATION = "location";
     String MESSAGE_FILE_START = "file_start";
     String MESSAGE_FILE_CHUNK = "file_chunk";

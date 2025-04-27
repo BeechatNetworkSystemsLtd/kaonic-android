@@ -1,7 +1,6 @@
 package network.beechat.kaonic.sampleapp.services.call
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import network.beechat.kaonic.models.KaonicEvent
@@ -19,7 +18,7 @@ class CallService(scope: CoroutineScope) {
                 .collect { event ->
                     when (event.data) {
                         is MessageTextEvent -> handleTextMessageEvent(
-                            (event.data as MessageTextEvent).chatUuid, event
+                            (event.data as MessageTextEvent).chatId, event
                         )
                     }
                 }
