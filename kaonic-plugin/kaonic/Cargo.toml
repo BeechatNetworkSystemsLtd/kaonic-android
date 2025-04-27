@@ -27,7 +27,7 @@ jni = "0.21.1"
 android_log = "0.1.3"
 
 [lib]
-# crate-type = ["staticlib", "dylib"]
+crate-type = ["staticlib", "dylib"]
 
 [[example]]
 name = "mock-messenger"

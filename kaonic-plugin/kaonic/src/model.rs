@@ -27,3 +27,7 @@ pub struct MessageAcknowledge {
     pub chatId: String,
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct CallAudioData {
+    pub callId: String,
+}

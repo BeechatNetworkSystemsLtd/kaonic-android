@@ -7,6 +7,8 @@ use jni::{JNIEnv, JavaVM};
 
 use android_log;
 use log::{self, LevelFilter};
+use rand_core::OsRng;
+use reticulum::destination::SingleInputDestination;
 use reticulum::identity::PrivateIdentity;
 use reticulum::iface::tcp_client::TcpClient;
 use tokio::runtime::Runtime;
@@ -63,14 +65,14 @@ impl Platform for PlatformJni {
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_libraryInit(_env: JNIEnv) {
+pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_libraryInit(_env: JNIEnv) {
     android_log::init("kaonic").unwrap();
     log::set_max_level(LevelFilter::Debug);
     log::info!("kaonic library initialized");
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeInit(
+pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeInit(
     mut env: JNIEnv,
     obj: JObject,
     context: JObject,
@@ -94,7 +96,7 @@ pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeInit(
         let class = env.get_object_class(obj.clone()).expect("object class");
 
         let event_method = env
-            .get_method_id(&class, "event", "(Ljava/lang/String;)V")
+            .get_method_id(&class, "receive", "(Ljava/lang/String;)V")
             .expect("event method");
 
         KaonicJni {
@@ -138,7 +140,7 @@ pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeTransmit(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeDestroy(
+pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeDestroy(
     _env: JNIEnv,
     _class: JClass,
     ptr: jlong,
@@ -151,7 +153,7 @@ pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeDestroy(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeStart(
+pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeStart(
     mut env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
@@ -187,6 +189,41 @@ pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeStart(
         }
         Err(_) => log::error!("can't create private identity"),
     }
+}
+
+pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSendAudio(
+    mut env: JNIEnv,
+    _obj: JObject,
+    ptr: jlong,
+    data: JByteArray,
+) {
+    let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
+
+    let data: Vec<u8> = match env.convert_byte_array(data) {
+        Ok(bytes) => bytes,
+        Err(_) => vec![],
+    };
+
+    let _ = lib.cmd_send.blocking_send(Event::AudioData());
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeGenerate(
+    env: JNIEnv,
+    _obj: JObject,
+    _ptr: jlong,
+) -> jstring {
+    // Generate new identity
+    let identity = PrivateIdentity::new_from_rand(OsRng);
+
+    let _destination = SingleInputDestination::new(
+        identity.clone(),
+        Messenger::<PlatformJni>::destination_name(),
+    );
+
+    let secret = identity.to_hex_string();
+
+    env.new_string(&secret).unwrap().into_raw()
 }
 
 async fn messenger_task(

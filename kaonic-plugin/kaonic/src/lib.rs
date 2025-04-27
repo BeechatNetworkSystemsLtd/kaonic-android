@@ -95,6 +95,10 @@ impl<T: Platform + Send + 'static> Messenger<T> {
             .clone();
     }
 
+    pub fn destination_name() -> DestinationName {
+        DestinationName::new("kaonic", "messenger.contact")
+    }
+
     pub async fn send(&self, command: MessengerCommand) {
         let _ = self.cmd_send.send(command).await;
     }
@@ -159,6 +163,8 @@ async fn handle_announces<T: Platform + Send + 'static>(
                 let destination = destination.lock().await;
                 // TODO: check if destination is compatible
 
+                log::debug!("messenger: contact {} announce", destination.desc.address_hash);
+
                 let transport = handler.lock().await.transport.clone();
 
                 transport.lock().await.link(destination.desc).await;
@@ -170,7 +176,9 @@ async fn handle_announces<T: Platform + Send + 'static>(
                     },
                 };
 
-                handler.lock().await.platform.lock().await.send_event(&Event::ContactFound(contact));
+                let platform = handler.lock().await.platform.clone();
+
+                platform.lock().await.send_event(&Event::ContactFound(contact));
             }
         }
     }
@@ -211,7 +219,7 @@ async fn handle_commands<T: Platform>(
     }
 }
 
-async fn handle_advertise<T: Platform>(
+async fn handle_advertise<T: Platform + Send + 'static>(
     handler: Arc<Mutex<MessengerHandler<T>>>,
     cancel: CancellationToken,
 ) {
@@ -223,7 +231,7 @@ async fn handle_advertise<T: Platform>(
         transport
             .lock()
             .await
-            .add_destination(id, DestinationName::new("kaonic", "messenger.contact"))
+            .add_destination(id, Messenger::<T>::destination_name())
             .await
     };
 
@@ -233,6 +241,8 @@ async fn handle_advertise<T: Platform>(
             .await
             .send_announce(&contact_destination, None)
             .await;
+
+        log::debug!("send announce");
 
         tokio::select! {
             _ = cancel.cancelled() => {
