@@ -25,7 +25,7 @@ fun SampleAppTheme(
 ) {
 
     MaterialTheme(
-        colorScheme = DarkColorScheme,
+        colorScheme = lightColorScheme(),
         typography = Typography,
         content = content
     )

@@ -33,6 +33,7 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
     final private @NonNull KaonicLib kaonicLib;
     final private ObjectMapper objectMapper = new ObjectMapper();
     private KaonicEventListener eventListener;
+    private String myAddress = "1234567890";
 
     public LibCommunicationHandler(@NonNull KaonicLib kaonicLib) {
         this.kaonicLib = kaonicLib;
@@ -51,10 +52,21 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
         this.eventListener = null;
     }
 
+    public String getMyAddress() {
+        return myAddress;
+    }
+
     public void sendMessage(String address, String message) {
         transmitData(new KaonicEvent(KaonicEventType.MESSAGE_TEXT,
                 address, System.currentTimeMillis(),
                 new MessageTextEvent(address, message)));
+        try {
+            onDataReceive(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.MESSAGE_TEXT,
+                    myAddress, System.currentTimeMillis(),
+                    new MessageTextEvent(address, message))));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void transmitData(KaonicEvent kaonicEvent) {
@@ -81,20 +93,28 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
             switch (eventType) {
                 case KaonicEventType.NODE_FOUND:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), NodeFoundEvent.class);
+                    break;
                 case KaonicEventType.MESSAGE_TEXT:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), MessageTextEvent.class);
+                    break;
                 case KaonicEventType.MESSAGE_LOCATION:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), MessageLocationEvent.class);
+                    break;
                 case KaonicEventType.MESSAGE_FILE_START:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), MessageFileStartEvent.class);
+                    break;
                 case KaonicEventType.MESSAGE_FILE_CHUNK:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), MessageFileChunkEvent.class);
+                    break;
                 case KaonicEventType.CALL_NEW:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallNewEvent.class);
+                    break;
                 case KaonicEventType.CALL_ANSWER:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallAnswerEvent.class);
+                    break;
                 case KaonicEventType.CALL_VOICE:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallVoiceEvent.class);
+                    break;
                 case KaonicEventType.CALL_REJECT:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallRejectEvent.class);
             }
@@ -103,7 +123,9 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
                 event.data = kaonicEventData;
 
                 Log.i(TAG, "\uD83D\uDCDA onEventReceived called");
-                eventListener.onEventReceived(event);
+                if (eventListener != null) {
+                    eventListener.onEventReceived(event);
+                }
             }
         } catch (JSONException e) {
             Log.e(TAG, Objects.requireNonNull(e.getMessage()));

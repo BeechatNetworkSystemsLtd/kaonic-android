@@ -3,6 +3,8 @@ package network.beechat.kaonic.models;
 
 public class KaonicEvent<T extends KaonicEventData> {
     public final String type;
+    /// from who that event is
+    /// if the event is my( my message, etc) - address is mine
     public final String address;
     public final long timestamp;
     public T data;

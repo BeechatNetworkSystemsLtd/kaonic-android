@@ -1,8 +1,14 @@
 package network.beechat.kaonic.sampleapp.nodedetails
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import kotlinx.coroutines.flow.StateFlow
+import network.beechat.kaonic.models.KaonicEvent
+import network.beechat.kaonic.models.messages.MessageEvent
 import network.beechat.kaonic.sampleapp.services.ChatService
+import network.beechat.kaonic.sampleapp.services.KaonicService
 
 class NodeDetailsViewModelFactory(
     private val address: String,
@@ -14,7 +20,19 @@ class NodeDetailsViewModelFactory(
 }
 
 class NodeDetailsViewModel(
-    private val nodeAddress: String,
+    val nodeAddress: String,
     private val chatService: ChatService
 ) : ViewModel() {
+    private val _messages = mutableStateOf<List<KaonicEvent<MessageEvent>>>(emptyList())
+    val messages: List<KaonicEvent<MessageEvent>> get() = _messages.value
+
+
+    fun getMessages(chatId: String): StateFlow<List<KaonicEvent<MessageEvent>>> {
+        return chatService.getChatMessages(chatId)
+    }
+
+    fun sendMessage(message: String) {
+        chatService.sendTextMessage(message, nodeAddress)
+    }
+
 }
