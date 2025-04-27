@@ -91,7 +91,7 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
             JSONObject eventData = eventObject.getJSONObject("data");
             KaonicEventData kaonicEventData = null;
             switch (eventType) {
-                case KaonicEventType.NODE_FOUND:
+                case KaonicEventType.CONTACT_FOUND:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), NodeFoundEvent.class);
                     break;
                 case KaonicEventType.MESSAGE_TEXT:
