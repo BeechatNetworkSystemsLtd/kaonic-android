@@ -25,6 +25,7 @@ use tokio_util::sync::CancellationToken;
 mod ack_manager;
 pub mod cache;
 pub mod event;
+pub mod jni;
 pub mod model;
 
 struct MessengerHandler<T: Platform> {
@@ -44,6 +45,12 @@ pub struct Messenger<T: Platform> {
     handler: Arc<Mutex<MessengerHandler<T>>>,
     cmd_send: Sender<MessengerCommand>,
     cancel: CancellationToken,
+}
+
+impl<T: Platform> Drop for Messenger<T> {
+    fn drop(&mut self) {
+        self.cancel.cancel();
+    }
 }
 
 impl<T: Platform + Send + 'static> Messenger<T> {

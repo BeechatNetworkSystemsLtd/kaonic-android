@@ -1,0 +1,227 @@
+use std::sync::{Arc, Mutex};
+
+use jni::objects::{GlobalRef, JByteArray, JClass, JMethodID, JObject, JString, JValue};
+use jni::signature::{Primitive, ReturnType};
+use jni::sys::{jlong, jstring};
+use jni::{JNIEnv, JavaVM};
+
+use android_log;
+use log::{self, LevelFilter};
+use reticulum::identity::PrivateIdentity;
+use reticulum::iface::tcp_client::TcpClient;
+use tokio::runtime::Runtime;
+use tokio::sync::mpsc::Sender;
+use tokio_util::sync::CancellationToken;
+
+use crate::event::Event;
+use crate::{Messenger, MessengerCommand, Platform};
+
+#[derive(Clone)]
+struct KaonicJni {
+    _context: GlobalRef,
+    obj: GlobalRef,
+    event_method: JMethodID,
+    jvm: Arc<JavaVM>,
+}
+
+struct KaonicLib {
+    jni: Arc<Mutex<KaonicJni>>,
+    runtime: Arc<Runtime>,
+    cancel: CancellationToken,
+    cmd_send: Sender<Event>,
+}
+
+struct PlatformJni {
+    jni: Arc<Mutex<KaonicJni>>,
+}
+
+impl Platform for PlatformJni {
+    fn send_event(&mut self, event: &crate::event::Event) {
+        let jni = self.jni.lock().expect("jni locked");
+
+        let mut env = jni
+            .jvm
+            .attach_current_thread_permanently()
+            .expect("failed to attach thread");
+
+        let json = serde_json::to_string_pretty(&event).expect("valid json string");
+
+        let event_json_str = env.new_string(json).unwrap();
+
+        let arguments = [JValue::Object(&event_json_str).as_jni()];
+
+        unsafe {
+            env.call_method_unchecked(
+                &jni.obj,
+                jni.event_method,
+                ReturnType::Primitive(Primitive::Void),
+                &arguments[..],
+            )
+            .unwrap()
+        };
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_libraryInit(_env: JNIEnv) {
+    android_log::init("kaonic").unwrap();
+    log::set_max_level(LevelFilter::Debug);
+    log::info!("kaonic library initialized");
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeInit(
+    mut env: JNIEnv,
+    obj: JObject,
+    context: JObject,
+) -> jlong {
+    let runtime = Arc::new(
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(24)
+            .enable_all()
+            .build()
+            .expect("tokio runtime"),
+    );
+
+    let jni = {
+        let jvm = env.get_java_vm().expect("failed to get JavaVM");
+        let jvm = Arc::new(jvm);
+
+        let obj = env
+            .new_global_ref(obj)
+            .expect("Failed to create global ref");
+
+        let class = env.get_object_class(obj.clone()).expect("object class");
+
+        let event_method = env
+            .get_method_id(&class, "event", "(Ljava/lang/String;)V")
+            .expect("event method");
+
+        KaonicJni {
+            _context: env
+                .new_global_ref(context)
+                .expect("Failed to create global ref"),
+            obj,
+            event_method,
+            jvm,
+        }
+    };
+
+    let (cmd_send, _) = tokio::sync::mpsc::channel(1);
+    let lib = Box::new(KaonicLib {
+        jni: Arc::new(Mutex::new(jni)),
+        runtime,
+        cancel: CancellationToken::new(),
+        cmd_send,
+    });
+
+    Box::into_raw(lib) as jlong
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeTransmit(
+    mut env: JNIEnv,
+    _obj: JObject,
+    ptr: jlong,
+    event: JString,
+) {
+    let lib = unsafe { &*(ptr as *const KaonicLib) };
+
+    let event: String = match env.get_string(&event) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => "{}".into(),
+    };
+
+    if let Ok(event) = serde_json::from_str::<Event>(&event) {
+        let _ = lib.cmd_send.blocking_send(event);
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeDestroy(
+    _env: JNIEnv,
+    _class: JClass,
+    ptr: jlong,
+) {
+    // Safety: ptr must be a valid pointer created by nativeInit
+    unsafe {
+        let _state = Box::from_raw(ptr as *mut KaonicLib);
+        // Box will be dropped here, cleaning up our state
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeStart(
+    mut env: JNIEnv,
+    _obj: JObject,
+    ptr: jlong,
+    identity: JString,
+) {
+    // Safety: ptr must be a valid pointer created by nativeInit
+    let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
+
+    lib.cancel.cancel();
+    lib.cancel = CancellationToken::new();
+
+    let (cmd_send, cmd_recv) = tokio::sync::mpsc::channel(1);
+    lib.cmd_send = cmd_send;
+
+    // Convert JString to Rust String
+    let identity_hex: String = match env.get_string(&identity) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => {
+            eprintln!("Failed to convert JString to Rust String");
+            return;
+        }
+    };
+
+    // Convert hex string into PrivateIdentity
+    match PrivateIdentity::new_from_hex_string(&identity_hex) {
+        Ok(identity) => {
+            lib.runtime.spawn(messenger_task(
+                identity,
+                cmd_recv,
+                lib.jni.clone(),
+                lib.cancel.clone(),
+            ));
+        }
+        Err(_) => log::error!("can't create private identity"),
+    }
+}
+
+async fn messenger_task(
+    identity: PrivateIdentity,
+    mut cmd_rx: tokio::sync::mpsc::Receiver<Event>,
+    jni: Arc<Mutex<KaonicJni>>,
+    cancel: CancellationToken,
+) {
+    let messenger = Messenger::new(identity, "messenger", PlatformJni { jni });
+
+    // Setup all interfaces
+    {
+        messenger
+            .iface_manager()
+            .await
+            .lock()
+            .await
+            .spawn(TcpClient::new("192.168.1.134:4242"), TcpClient::spawn);
+    }
+
+    loop {
+        tokio::select! {
+            _ = cancel.cancelled() => {
+                break;
+            },
+
+            Some(cmd) = cmd_rx.recv() => {
+                match cmd {
+                    Event::Message(message) => {
+                        messenger.send(MessengerCommand::SendMessage(message)).await;
+                    }
+                    Event::ContactFound(_) => {},
+                    Event::MessageAcknowledge(_) => {},
+                }
+            },
+        }
+    }
+}
