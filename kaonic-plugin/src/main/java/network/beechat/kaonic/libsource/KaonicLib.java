@@ -14,7 +14,7 @@ public class KaonicLib {
     final private String TAG = "KaonicLib";
 
     static {
-        // init library
+//        System.loadLibrary("kaonic");
     }
 
     private static KaonicLib instance;
