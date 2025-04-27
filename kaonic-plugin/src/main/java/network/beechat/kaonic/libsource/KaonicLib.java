@@ -102,9 +102,9 @@ public class KaonicLib {
         audioService.stopPlaying();
     }
 
-    public void playAudio(int size, byte[] buffer) {
+    public void feedAudio(byte[] buffer) {
         Log.i(TAG, "playAudio requested");
-        audioService.play(buffer, size);
+        audioService.play(buffer, buffer.length);
     }
 
     private void onAudioResult(int size, byte[] buffer) {
