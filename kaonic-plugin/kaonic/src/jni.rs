@@ -208,7 +208,7 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeIni
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_app_kaonic_Kaonic_nativeTransmit(
+pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeTransmit(
     mut env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
