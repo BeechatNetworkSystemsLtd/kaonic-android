@@ -16,6 +16,6 @@ public interface KaonicEventType {
     String[] callEvents = new String[]{CALL_NEW, CALL_ANSWER, CALL_REJECT, CALL_VOICE};
 
     /// other
-    String CONTACT_FOUND = "contact_found";
+    String CONTACT_FOUND = "ContactFound";
 
 }

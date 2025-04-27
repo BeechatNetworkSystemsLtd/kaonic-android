@@ -17,7 +17,7 @@ import network.beechat.kaonic.libsource.KaonicLib;
 import network.beechat.kaonic.models.KaonicEvent;
 import network.beechat.kaonic.models.KaonicEventData;
 import network.beechat.kaonic.models.KaonicEventType;
-import network.beechat.kaonic.models.NodeFoundEvent;
+import network.beechat.kaonic.models.ContactFoundEvent;
 import network.beechat.kaonic.models.calls.CallAnswerEvent;
 import network.beechat.kaonic.models.calls.CallNewEvent;
 import network.beechat.kaonic.models.calls.CallRejectEvent;
@@ -58,12 +58,10 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
 
     public void sendMessage(String address, String message) {
         transmitData(new KaonicEvent(KaonicEventType.MESSAGE_TEXT,
-                address, System.currentTimeMillis(),
-                new MessageTextEvent(address, message)));
+                new MessageTextEvent(address, System.currentTimeMillis(), address, message)));
         try {
             onDataReceive(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.MESSAGE_TEXT,
-                    myAddress, System.currentTimeMillis(),
-                    new MessageTextEvent(address, message))));
+                    new MessageTextEvent(myAddress, System.currentTimeMillis(), address, message))));
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
@@ -86,13 +84,13 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
         try {
             JSONObject eventObject = new JSONObject(dataJson);
             String eventType = eventObject.getString("type");
-            String address = eventObject.getString("address");
-            long timestamp = eventObject.getLong("timestamp");
             JSONObject eventData = eventObject.getJSONObject("data");
+            String address = eventData.getString("address");
+            long timestamp = System.currentTimeMillis();//eventData.get("timestamp");
             KaonicEventData kaonicEventData = null;
             switch (eventType) {
                 case KaonicEventType.CONTACT_FOUND:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(), NodeFoundEvent.class);
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), ContactFoundEvent.class);
                     break;
                 case KaonicEventType.MESSAGE_TEXT:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), MessageTextEvent.class);
@@ -119,7 +117,7 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallRejectEvent.class);
             }
             if (kaonicEventData != null) {
-                KaonicEvent event = new KaonicEvent(eventType, address, timestamp);
+                KaonicEvent event = new KaonicEvent(eventType);
                 event.data = kaonicEventData;
 
                 Log.i(TAG, "\uD83D\uDCDA onEventReceived called");
@@ -127,11 +125,8 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
                     eventListener.onEventReceived(event);
                 }
             }
-        } catch (JSONException e) {
+        } catch (JSONException | JsonProcessingException e ) {
             Log.e(TAG, Objects.requireNonNull(e.getMessage()));
-            throw new RuntimeException(e);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
         }
     }
 }

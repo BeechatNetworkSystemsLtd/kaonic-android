@@ -60,7 +60,8 @@ object KaonicService : KaonicEventListener {
                 }
 
                 KaonicEventType.CONTACT_FOUND -> {
-                    contacts.add(event.address)
+                    if (!contacts.contains(event.data.address))
+                        contacts.add(event.data.address)
                 }
             }
         }

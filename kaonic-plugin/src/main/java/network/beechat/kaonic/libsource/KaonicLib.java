@@ -86,7 +86,7 @@ public class KaonicLib {
     private void receive(String json) {
         Log.i(TAG, "kaonicDataReceived");
         if (channelListener != null) {
-            // channelListener.onDataReceive(json);
+             channelListener.onDataReceive(json);
         }
     }
 

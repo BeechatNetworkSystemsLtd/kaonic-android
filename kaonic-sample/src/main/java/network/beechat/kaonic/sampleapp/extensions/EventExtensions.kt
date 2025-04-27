@@ -8,11 +8,11 @@ import java.util.Date
 import java.util.Locale
 
 fun KaonicEvent<MessageEvent>.isMy(): Boolean {
-    return KaonicService.myAddress == address
+    return KaonicService.myAddress == data.address
 }
 
 fun KaonicEvent<MessageEvent>.timeFormatted(): String {
     val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-    val date = Date(timestamp)
+    val date = Date(data.timestamp)
     return sdf.format(date)
 }

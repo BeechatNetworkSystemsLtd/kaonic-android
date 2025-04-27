@@ -204,7 +204,7 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSen
         Err(_) => vec![],
     };
 
-    let _ = lib.cmd_send.blocking_send(Event::AudioData());
+    //let _ = lib.cmd_send.blocking_send(Event::AudioData());
 }
 
 #[no_mangle]
