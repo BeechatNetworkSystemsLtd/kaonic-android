@@ -704,6 +704,7 @@ name = "kaonic"
 version = "0.1.0"
 dependencies = [
  "android_log",
+ "base64",
  "env_logger",
  "jni",
  "log 0.4.27",

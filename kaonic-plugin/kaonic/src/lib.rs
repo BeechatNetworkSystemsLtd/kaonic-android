@@ -4,7 +4,7 @@ use ack_manager::AckManager;
 use cache::CacheSet;
 use event::Event;
 
-use model::{Contact, ContactData, Message, MessageAcknowledge};
+use model::{CallAudioData, Contact, ContactData, Message, MessageAcknowledge};
 use rand_core::OsRng;
 use reticulum::{
     destination::{link::LinkEvent, DestinationName},
@@ -38,6 +38,7 @@ struct MessengerHandler<T: Platform> {
 
 pub enum MessengerCommand {
     SendMessage(Message),
+    CallAudioData(CallAudioData),
     // StartCall(AddressHash),
 }
 
@@ -106,6 +107,9 @@ impl<T: Platform + Send + 'static> Messenger<T> {
 
 pub trait Platform {
     fn send_event(&mut self, event: &Event);
+    fn start_audio(&mut self);
+    fn stop_audio(&mut self);
+    fn feed_audio(&mut self, audio_data: &[u8]);
 }
 
 impl<T: Platform> MessengerHandler<T> {
@@ -197,19 +201,24 @@ async fn handle_commands<T: Platform>(
 
             Some(cmd) = cmd_recv.recv() => {
                 match cmd {
+                    MessengerCommand::CallAudioData(call_audio_data) => {
+                        // handle call
+                    },
                     MessengerCommand::SendMessage(message) => {
                         let ack_id = message.id.clone();
                         let event = Event::Message(message);
-                        for _repeat in 0..6 {
+                        for repeat in 0..6 {
                             let rx = {
                                 let handler = handler.lock().await;
                                 handler.send(&AddressHash::new_empty(), &event).await;
                                 handler.ack_manager.wait_for_ack(&ack_id).await
                             };
 
-                            match timeout(Duration::from_secs(1), rx).await {
+                            match timeout(Duration::from_millis(500), rx).await {
                                 Ok(_) => break,
-                                Err(_) => {},
+                                Err(_) => {
+                                    log::warn!("messenger: message {} nack", repeat)
+                                },
                             }
                         }
                     },
@@ -263,7 +272,7 @@ async fn handle_message_data<T: Platform + Send + 'static>(
 ) {
     let ack = MessageAcknowledge {
         id: message.id.clone(),
-        chatId: message.chatId.clone(),
+        chat_id: message.chat_id.clone(),
     };
 
     message.address = from_address.to_hex_string();
@@ -296,11 +305,16 @@ async fn handle_data<T: Platform + Send + 'static>(
                     LinkEvent::Data(data)=> {
                         if let Ok(event) = serde_json::from_slice::<Event>(data.as_slice()) {
                             match event {
-                                Event::ContactFound(_) => {},
-                                Event::MessageAcknowledge(_) => {},
+                                Event::CallAudioData(call_audio_data) => {
+
+                                },
                                 Event::Message(message) => {
                                     let mut handler = handler.lock().await;
                                     handle_message_data(&mut handler, &link_event.address_hash, message).await;
+                                },
+                                Event::ContactFound(_) => {},
+                                Event::MessageAcknowledge(ack) => {
+                                    handler.lock().await.ack_manager.handle_ack(ack.id).await;
                                 },
                             }
                         }

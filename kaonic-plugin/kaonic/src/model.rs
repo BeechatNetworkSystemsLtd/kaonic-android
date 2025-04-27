@@ -15,7 +15,7 @@ pub struct Contact {
 #[derive(Serialize, Deserialize)]
 pub struct Message {
     pub id: String,
-    pub chatId: String,
+    pub chat_id: String,
     pub address: String,
     pub timestamp: i64,
     pub text: String,
@@ -24,10 +24,12 @@ pub struct Message {
 #[derive(Serialize, Deserialize)]
 pub struct MessageAcknowledge {
     pub id: String,
-    pub chatId: String,
+    pub chat_id: String,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct CallAudioData {
-    pub callId: String,
+    pub address: String,
+    pub call_id: String,
+    pub data: String,
 }

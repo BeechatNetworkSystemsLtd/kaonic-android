@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex};
 
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
 use jni::objects::{GlobalRef, JByteArray, JClass, JMethodID, JObject, JString, JValue};
 use jni::signature::{Primitive, ReturnType};
 use jni::sys::{jlong, jstring};
@@ -16,13 +18,17 @@ use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
 use crate::event::Event;
+use crate::model::CallAudioData;
 use crate::{Messenger, MessengerCommand, Platform};
 
 #[derive(Clone)]
 struct KaonicJni {
     _context: GlobalRef,
     obj: GlobalRef,
-    event_method: JMethodID,
+    receive_method: JMethodID,
+    start_audio_method: JMethodID,
+    stop_audio_method: JMethodID,
+    feed_audio_method: JMethodID,
     jvm: Arc<JavaVM>,
 }
 
@@ -55,7 +61,73 @@ impl Platform for PlatformJni {
         unsafe {
             env.call_method_unchecked(
                 &jni.obj,
-                jni.event_method,
+                jni.receive_method,
+                ReturnType::Primitive(Primitive::Void),
+                &arguments[..],
+            )
+            .unwrap()
+        };
+    }
+
+    fn start_audio(&mut self) {
+        let jni = self.jni.lock().expect("jni locked");
+
+        let mut env = jni
+            .jvm
+            .attach_current_thread_permanently()
+            .expect("failed to attach thread");
+
+        unsafe {
+            env.call_method_unchecked(
+                &jni.obj,
+                jni.start_audio_method,
+                ReturnType::Primitive(Primitive::Void),
+                &[],
+            )
+            .unwrap()
+        };
+    }
+
+    fn stop_audio(&mut self) {
+        let jni = self.jni.lock().expect("jni locked");
+
+        let mut env = jni
+            .jvm
+            .attach_current_thread_permanently()
+            .expect("failed to attach thread");
+
+        unsafe {
+            env.call_method_unchecked(
+                &jni.obj,
+                jni.stop_audio_method,
+                ReturnType::Primitive(Primitive::Void),
+                &[],
+            )
+            .unwrap()
+        };
+    }
+
+    fn feed_audio(&mut self, audio_data: &[u8]) {
+        let jni = self.jni.lock().expect("jni locked");
+
+        let mut env = jni
+            .jvm
+            .attach_current_thread_permanently()
+            .expect("failed to attach thread");
+
+        let byte_array = env.new_byte_array(audio_data.len() as i32).unwrap();
+
+        let buffer: &[i8] = unsafe { std::mem::transmute(audio_data) };
+
+        env.set_byte_array_region(&byte_array, 0, buffer)
+            .expect("byte array with data");
+
+        let arguments = [JValue::Object(&byte_array).as_jni()];
+
+        unsafe {
+            env.call_method_unchecked(
+                &jni.obj,
+                jni.feed_audio_method,
                 ReturnType::Primitive(Primitive::Void),
                 &arguments[..],
             )
@@ -95,16 +167,31 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeIni
 
         let class = env.get_object_class(obj.clone()).expect("object class");
 
-        let event_method = env
+        let receive_method = env
             .get_method_id(&class, "receive", "(Ljava/lang/String;)V")
             .expect("event method");
+
+        let start_audio_method = env
+            .get_method_id(&class, "startAudio", "()V")
+            .expect("start audio method");
+
+        let stop_audio_method = env
+            .get_method_id(&class, "stopAudio", "()V")
+            .expect("stop audio method");
+
+        let feed_audio_method = env
+            .get_method_id(&class, "feedAudio", "([B)V")
+            .expect("feed audio method");
 
         KaonicJni {
             _context: env
                 .new_global_ref(context)
                 .expect("Failed to create global ref"),
             obj,
-            event_method,
+            receive_method,
+            start_audio_method,
+            stop_audio_method,
+            feed_audio_method,
             jvm,
         }
     };
@@ -191,8 +278,9 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSta
     }
 }
 
+#[no_mangle]
 pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSendAudio(
-    mut env: JNIEnv,
+    env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
     data: JByteArray,
@@ -204,7 +292,15 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSen
         Err(_) => vec![],
     };
 
-    //let _ = lib.cmd_send.blocking_send(Event::AudioData());
+    let call_audio_data = CallAudioData {
+        address: "".into(),
+        call_id: "".into(),
+        data: BASE64_STANDARD.encode(data),
+    };
+
+    let _ = lib
+        .cmd_send
+        .blocking_send(Event::CallAudioData(call_audio_data));
 }
 
 #[no_mangle]
@@ -255,8 +351,11 @@ async fn messenger_task(
                     Event::Message(message) => {
                         messenger.send(MessengerCommand::SendMessage(message)).await;
                     }
-                    Event::ContactFound(_) => {},
-                    Event::MessageAcknowledge(_) => {},
+                    Event::CallAudioData(call_audio_data) => {
+                        messenger.send(MessengerCommand::CallAudioData(call_audio_data)).await;
+                    },
+                    Event::ContactFound(_)=>{},
+                    Event::MessageAcknowledge(_)=>{},
                 }
             },
         }
