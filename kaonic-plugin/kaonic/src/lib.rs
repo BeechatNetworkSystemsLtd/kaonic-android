@@ -1,15 +1,13 @@
-use std::{sync::Arc, time::Duration};
+use std::{ops::Add, sync::Arc, time::Duration};
 
 use ack_manager::AckManager;
 use cache::CacheSet;
 use event::Event;
 
-use model::{CallAudioData, Contact, ContactData, Message, MessageAcknowledge};
+use model::{Acknowledge, CallAudioData, Contact, ContactData, Message};
 use rand_core::OsRng;
 use reticulum::{
-    destination::{
-        link::LinkEvent, DestinationName, SingleInputDestination, SingleOutputDestination,
-    },
+    destination::{link::LinkEvent, DestinationName, SingleInputDestination},
     hash::AddressHash,
     identity::PrivateIdentity,
     iface::InterfaceManager,
@@ -40,8 +38,10 @@ struct MessengerHandler<T: Platform> {
 
 pub enum MessengerCommand {
     SendMessage(Message),
+    CallInvoke(AddressHash),
+    CallAnswer(AddressHash),
+    CallReject(AddressHash),
     CallAudioData(CallAudioData),
-    // StartCall(AddressHash),
 }
 
 pub struct Messenger<T: Platform> {
@@ -146,6 +146,10 @@ impl<T: Platform> MessengerHandler<T> {
             .send_to_out_links(address, event_json.as_bytes())
             .await;
     }
+
+    async fn send_ack(&self, address: &AddressHash, ack: Acknowledge) {
+        self.send_out(address, &Event::Acknowledge(ack)).await;
+    }
 }
 
 async fn handle_messenger<T: Platform + Send + 'static>(
@@ -230,6 +234,30 @@ async fn handle_announces<T: Platform + Send + 'static>(
     }
 }
 
+async fn send_ack_event<T: Platform>(
+    event_id: &String,
+    event: Event,
+    address: &AddressHash,
+    handler: Arc<Mutex<MessengerHandler<T>>>,
+) {
+    const MAX_REPEATS: usize = 8;
+
+    for repeat in 0..MAX_REPEATS {
+        let rx = {
+            let handler = handler.lock().await;
+            handler.send_in(&address, &event).await;
+            handler.ack_manager.wait_for_ack(&event_id).await
+        };
+
+        match timeout(Duration::from_millis(500), rx).await {
+            Ok(_) => break,
+            Err(_) => {
+                log::warn!("messenger: message({}) = {} nack", event_id, repeat)
+            }
+        }
+    }
+}
+
 async fn handle_commands<T: Platform>(
     handler: Arc<Mutex<MessengerHandler<T>>>,
     cancel: CancellationToken,
@@ -249,28 +277,18 @@ async fn handle_commands<T: Platform>(
                     MessengerCommand::CallAudioData(call_audio_data) => {
                         // handle call
                     },
+                    MessengerCommand::CallInvoke(_) => {
+                    },
+                    MessengerCommand::CallAnswer(_) => {
+                    },
+                    MessengerCommand::CallReject(_) => {
+                    },
                     MessengerCommand::SendMessage(message) => {
-                        let ack_id = message.id.clone();
 
                         let address = AddressHash::new_from_hex_string(&message.address).unwrap();
                         log::debug!("messenger: send message to {}", address);
 
-                        let event = Event::Message(message);
-
-                        for repeat in 0..6 {
-                            let rx = {
-                                let handler = handler.lock().await;
-                                handler.send_in(&contact_address, &event).await;
-                                handler.ack_manager.wait_for_ack(&ack_id).await
-                            };
-
-                            match timeout(Duration::from_millis(700), rx).await {
-                                Ok(_) => break,
-                                Err(_) => {
-                                    log::warn!("messenger: message {} nack", repeat)
-                                },
-                            }
-                        }
+                        send_ack_event(&message.id.clone(), Event::Message(message), &contact_address, handler.clone()).await;
                     },
                 }
             },
@@ -311,10 +329,7 @@ async fn handle_message_data<T: Platform + Send + 'static>(
 ) {
     log::debug!("messenger: receive message from {}", from_address);
 
-    let ack = MessageAcknowledge {
-        id: message.id.clone(),
-        chat_id: message.chat_id.clone(),
-    };
+    let ack = Acknowledge::new_from_id(&message.id);
 
     message.address = from_address.to_hex_string();
 
@@ -324,13 +339,13 @@ async fn handle_message_data<T: Platform + Send + 'static>(
             .lock()
             .await
             .send_event(&Event::Message(message));
+    } else {
+        log::warn!("messenger: duplicate detected");
     }
 
     handler.ack_manager.handle_ack(ack.id.clone()).await;
 
-    handler
-        .send_out(from_address, &Event::MessageAcknowledge(ack))
-        .await;
+    handler.send_ack(from_address, ack).await;
 }
 
 async fn handle_out_data<T: Platform + Send + 'static>(
@@ -355,9 +370,7 @@ async fn handle_out_data<T: Platform + Send + 'static>(
                                     handle_message_data(&mut handler, &link_event.address_hash, message).await;
                                 },
                                 Event::ContactFound(_) => {},
-                                Event::MessageAcknowledge(ack) => {
-                                    handler.lock().await.ack_manager.handle_ack(ack.id).await;
-                                },
+                                Event::Acknowledge(_) => {},
                             }
                         } else if let Err(err) = event {
                             log::error!("messenger: invalid event {}", err);
@@ -395,7 +408,7 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                                 Event::Message(_) => {
                                 },
                                 Event::ContactFound(_) => {},
-                                Event::MessageAcknowledge(ack) => {
+                                Event::Acknowledge(ack) => {
                                     handler.lock().await.ack_manager.handle_ack(ack.id).await;
                                 },
                             }

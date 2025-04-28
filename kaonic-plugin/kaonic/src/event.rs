@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::model::{CallAudioData, Contact, Message, MessageAcknowledge};
+use crate::model::{CallAudioData, Contact, Message, Acknowledge};
 
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", content = "data")]
 pub enum Event {
     ContactFound(Contact),
     Message(Message),
-    MessageAcknowledge(MessageAcknowledge),
+    Acknowledge(Acknowledge),
     CallAudioData(CallAudioData),
 }

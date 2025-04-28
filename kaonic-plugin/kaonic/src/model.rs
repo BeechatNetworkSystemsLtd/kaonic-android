@@ -22,9 +22,14 @@ pub struct Message {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct MessageAcknowledge {
+pub struct Acknowledge {
     pub id: String,
-    pub chat_id: String,
+}
+
+impl Acknowledge {
+    pub fn new_from_id(id: impl Into<String>) -> Self {
+        Self { id: id.into() }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -39,4 +44,3 @@ pub struct CallStart {
     pub address: String,
     pub call_id: String,
 }
-

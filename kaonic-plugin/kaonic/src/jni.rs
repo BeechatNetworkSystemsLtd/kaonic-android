@@ -13,7 +13,6 @@ use rand_core::OsRng;
 use reticulum::destination::SingleInputDestination;
 use reticulum::identity::PrivateIdentity;
 use reticulum::iface::kaonic::kaonic_grpc::KaonicGrpc;
-use reticulum::iface::tcp_client::TcpClient;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
@@ -345,8 +344,9 @@ async fn messenger_task(
 
         messenger.iface_manager().await.lock().await.spawn(
             KaonicGrpc::new(
-            format!("http://{}", "192.168.10.1:8080"),
+                format!("http://{}", "192.168.10.1:8080"),
                 reticulum::iface::kaonic::RadioModule::RadioA,
+                None,
             ),
             KaonicGrpc::spawn,
         );
@@ -367,7 +367,7 @@ async fn messenger_task(
                         messenger.send(MessengerCommand::CallAudioData(call_audio_data)).await;
                     },
                     Event::ContactFound(_)=>{},
-                    Event::MessageAcknowledge(_)=>{},
+                    Event::Acknowledge(_)=>{},
                 }
             },
         }
