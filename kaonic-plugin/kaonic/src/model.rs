@@ -33,3 +33,10 @@ pub struct CallAudioData {
     pub call_id: String,
     pub data: String,
 }
+
+#[derive(Serialize, Deserialize)]
+pub struct CallStart {
+    pub address: String,
+    pub call_id: String,
+}
+

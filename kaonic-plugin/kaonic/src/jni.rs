@@ -12,6 +12,7 @@ use log::{self, LevelFilter};
 use rand_core::OsRng;
 use reticulum::destination::SingleInputDestination;
 use reticulum::identity::PrivateIdentity;
+use reticulum::iface::kaonic::kaonic_grpc::KaonicGrpc;
 use reticulum::iface::tcp_client::TcpClient;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::Sender;
@@ -216,13 +217,16 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeTra
 ) {
     let lib = unsafe { &*(ptr as *const KaonicLib) };
 
-    let event: String = match env.get_string(&event) {
+    let event_str: String = match env.get_string(&event) {
         Ok(jstr) => jstr.into(),
         Err(_) => "{}".into(),
     };
 
-    if let Ok(event) = serde_json::from_str::<Event>(&event) {
+    let event = serde_json::from_str::<Event>(&event_str);
+    if let Ok(event) = event {
         let _ = lib.cmd_send.blocking_send(event);
+    } else if let Err(err) = event {
+        log::error!("can't parse event {} '{}'", err, event_str);
     }
 }
 
@@ -332,12 +336,20 @@ async fn messenger_task(
 
     // Setup all interfaces
     {
-        messenger
-            .iface_manager()
-            .await
-            .lock()
-            .await
-            .spawn(TcpClient::new("192.168.1.134:4242"), TcpClient::spawn);
+        // messenger
+        //     .iface_manager()
+        //     .await
+        //     .lock()
+        //     .await
+        //     .spawn(TcpClient::new("192.168.1.134:4242"), TcpClient::spawn);
+
+        messenger.iface_manager().await.lock().await.spawn(
+            KaonicGrpc::new(
+            format!("http://{}", "192.168.10.1:8080"),
+                reticulum::iface::kaonic::RadioModule::RadioA,
+            ),
+            KaonicGrpc::spawn,
+        );
     }
 
     loop {
