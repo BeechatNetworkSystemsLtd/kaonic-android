@@ -56,12 +56,12 @@ public class LibCommunicationHandler implements KaonicDataChannelListener {
         return myAddress;
     }
 
-    public void sendMessage(String address, String message) {
+    public void sendMessage(String address, String message, String  chatId) {
         transmitData(new KaonicEvent(KaonicEventType.MESSAGE_TEXT,
-                new MessageTextEvent(address, System.currentTimeMillis(), address, message)));
+                new MessageTextEvent(address, System.currentTimeMillis(), chatId, message)));
         try {
             onDataReceive(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.MESSAGE_TEXT,
-                    new MessageTextEvent(myAddress, System.currentTimeMillis(), address, message))));
+                    new MessageTextEvent(myAddress, System.currentTimeMillis(), chatId, message))));
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }

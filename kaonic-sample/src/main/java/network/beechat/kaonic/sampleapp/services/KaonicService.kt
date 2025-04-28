@@ -28,12 +28,14 @@ object KaonicService : KaonicEventListener {
     val events: SharedFlow<KaonicEvent<KaonicEventData>> = _events
 
     private var _myAddress = ""
-    val myAddress = _myAddress;
+    val myAddress: String
+        get() = _myAddress
 
     fun init(kaonicCommunicationHandler: LibCommunicationHandler) {
         this.kaonicCommunicationHandler = kaonicCommunicationHandler
         kaonicCommunicationHandler.setEventListener(this)
         _myAddress = kaonicCommunicationHandler.myAddress;
+        print("")
     }
 
     suspend fun emitNodeFound() {
@@ -47,8 +49,8 @@ object KaonicService : KaonicEventListener {
         }
     }
 
-    fun sendTextMessage(message: String, address: String) {
-        kaonicCommunicationHandler.sendMessage(address, message)
+    fun sendTextMessage(message: String, address: String, chatId: String) {
+        kaonicCommunicationHandler.sendMessage(address, message, chatId)
     }
 
     override fun onEventReceived(event: KaonicEvent<KaonicEventData>) {

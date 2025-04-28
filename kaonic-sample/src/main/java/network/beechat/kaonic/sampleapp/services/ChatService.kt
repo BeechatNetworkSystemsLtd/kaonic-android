@@ -19,6 +19,12 @@ class ChatService(scope: CoroutineScope) {
     private val messages =
         mutableStateMapOf<String, MutableStateFlow<ArrayList<KaonicEvent<MessageEvent>>>>()
 
+    /**
+     * key is contact address,
+     * value is chatUUID
+     */
+    private val contactChats = mutableStateMapOf<String, String>()
+
     init {
         scope.launch {
             KaonicService.events
@@ -35,10 +41,19 @@ class ChatService(scope: CoroutineScope) {
     }
 
     fun getChatMessages(address: String): StateFlow<ArrayList<KaonicEvent<MessageEvent>>> {
-        return messages.getOrPut(address) { MutableStateFlow(arrayListOf()) }
+        val chatId: String
+        if (!contactChats.containsKey(address)) {
+            chatId = java.util.UUID.randomUUID().toString()
+            contactChats[chatId] = address
+        } else {
+            chatId = contactChats[address] ?: java.util.UUID.randomUUID().toString()
+        }
+        return messages.getOrPut(chatId) { MutableStateFlow(arrayListOf()) }
     }
 
     private fun handleTextMessageEvent(chatId: String, event: KaonicEvent<MessageEvent>) {
+        checkChatId(chatId, event.data.address)
+
         val flow = messages.getOrPut(chatId) { MutableStateFlow(arrayListOf()) }
         val oldList = flow.value
         val newList = ArrayList(oldList)
@@ -47,6 +62,12 @@ class ChatService(scope: CoroutineScope) {
     }
 
     fun sendTextMessage(message: String, address: String) {
-        KaonicService.sendTextMessage(message, address)
+        KaonicService.sendTextMessage(message, address, contactChats[address] ?: "")
+    }
+
+    private fun checkChatId(chatId: String, address: String) {
+        if (!contactChats.containsKey(address)) {
+            contactChats[address] = chatId
+        }
     }
 }
