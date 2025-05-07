@@ -1,4 +1,3 @@
-use reticulum::hash::AddressHash;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -43,4 +42,23 @@ pub struct CallAudioData {
 pub struct CallStart {
     pub address: String,
     pub call_id: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FileStart {
+    pub address: String,
+    pub id: String,
+    pub file_id: String,
+    pub chat_id: String,
+    pub file_size: usize,
+    pub file_name: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FileChunk {
+    pub address: String,
+    pub id: String,
+    pub file_id: String,
+    pub chat_id: String,
+    pub data: String,
 }

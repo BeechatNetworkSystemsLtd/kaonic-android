@@ -37,6 +37,9 @@ cargo {
     libname = "kaonic"
     targets = ["arm", "arm64", "x86"]
     verbose
+    features {
+        defaultAnd("android")
+    }
 }
 
 project.afterEvaluate {

@@ -2,24 +2,29 @@ use std::sync::{Arc, Mutex};
 
 use base64::prelude::BASE64_STANDARD;
 use base64::Engine;
+
 use jni::objects::{GlobalRef, JByteArray, JClass, JMethodID, JObject, JString, JValue};
 use jni::signature::{Primitive, ReturnType};
 use jni::sys::{jlong, jstring};
 use jni::{JNIEnv, JavaVM};
 
-use android_log;
-use log::{self, LevelFilter};
 use rand_core::OsRng;
+
 use reticulum::destination::SingleInputDestination;
 use reticulum::identity::PrivateIdentity;
 use reticulum::iface::kaonic::kaonic_grpc::KaonicGrpc;
+use reticulum::iface::tcp_client::TcpClient;
+
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
+use android_log;
+use log::{self, LevelFilter};
+
 use crate::event::Event;
+use crate::messenger::{Messenger, MessengerCommand, Platform};
 use crate::model::CallAudioData;
-use crate::{Messenger, MessengerCommand, Platform};
 
 #[derive(Clone)]
 struct KaonicJni {
@@ -335,21 +340,21 @@ async fn messenger_task(
 
     // Setup all interfaces
     {
-        // messenger
-        //     .iface_manager()
-        //     .await
-        //     .lock()
-        //     .await
-        //     .spawn(TcpClient::new("192.168.1.134:4242"), TcpClient::spawn);
+        messenger
+            .iface_manager()
+            .await
+            .lock()
+            .await
+            .spawn(TcpClient::new("192.168.0.224:4242"), TcpClient::spawn);
 
-        messenger.iface_manager().await.lock().await.spawn(
-            KaonicGrpc::new(
-                format!("http://{}", "192.168.10.1:8080"),
-                reticulum::iface::kaonic::RadioModule::RadioA,
-                None,
-            ),
-            KaonicGrpc::spawn,
-        );
+        // messenger.iface_manager().await.lock().await.spawn(
+        //     KaonicGrpc::new(
+        //         format!("http://{}", "192.168.10.1:8080"),
+        //         reticulum::iface::kaonic::RadioModule::RadioA,
+        //         None,
+        //     ),
+        //     KaonicGrpc::spawn,
+        // );
     }
 
     loop {
@@ -367,6 +372,8 @@ async fn messenger_task(
                         messenger.send(MessengerCommand::CallAudioData(call_audio_data)).await;
                     },
                     Event::ContactFound(_)=>{},
+                    Event::FileStart(_)=>{},
+                    Event::FileChunk(_)=>{},
                     Event::Acknowledge(_)=>{},
                 }
             },

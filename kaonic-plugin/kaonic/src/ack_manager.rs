@@ -1,11 +1,8 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc};
 
-use tokio::{
-    sync::{
-        oneshot::{self, Receiver},
-        Mutex,
-    },
-    time::timeout,
+use tokio::sync::{
+    oneshot::{self, Receiver},
+    Mutex,
 };
 
 pub struct AckManager<T> {
