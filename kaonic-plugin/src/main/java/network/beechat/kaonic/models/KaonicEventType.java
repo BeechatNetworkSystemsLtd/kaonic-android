@@ -5,8 +5,9 @@ public interface KaonicEventType {
     String MESSAGE_TEXT = "Message";
     String MESSAGE_LOCATION = "location";
     String MESSAGE_FILE_START = "file_start";
-    String MESSAGE_FILE_CHUNK = "file_chunk";
-    String[] messageEvents = new String[]{MESSAGE_TEXT, MESSAGE_LOCATION, MESSAGE_FILE_START, MESSAGE_FILE_CHUNK};
+    String MESSAGE_FILE = "MessageFile";
+    String MESSAGE_FILE_CHUNK = "MessageFile";
+    String[] messageEvents = new String[]{MESSAGE_TEXT, MESSAGE_LOCATION, MESSAGE_FILE_START};
 
     ///  calls
     String CALL_NEW = "new_call";

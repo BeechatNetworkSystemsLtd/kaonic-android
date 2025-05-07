@@ -2,7 +2,6 @@ package network.beechat.kaonic;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;
-import android.content.Context;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
@@ -13,42 +12,42 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
-public class FileWriteHelper {
+public class FileReceiver {
     private Uri fileUri;
     private OutputStream outputStream;
     private boolean initialized = false;
     private int fileSize = 0;
     private int writtenSize = 0;
+    private String fileName;
+    private String fileId;
+    private String chatUuid;
+    private String address;
 
-    public void open(ContentResolver resolver, String fileName, int fileSize) {
+    public void open(ContentResolver resolver, String fileName, int fileSize, String fileId, String chatUuid, String address) throws IOException {
         this.fileSize = fileSize;
+        this.fileName = fileName;
+        this.chatUuid = chatUuid;
+        this.fileId = fileId;
+        this.address = address;
         this.writtenSize = 0;
         close();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                ContentValues contentValues = new ContentValues();
-                contentValues.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
-                contentValues.put(MediaStore.Downloads.MIME_TYPE, "application/octet-stream");
-                contentValues.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+            ContentValues contentValues = new ContentValues();
+            contentValues.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
+            contentValues.put(MediaStore.Downloads.MIME_TYPE, "application/octet-stream");
+            contentValues.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
 
-                fileUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues);
-                if (fileUri != null) {
-                    outputStream = resolver.openOutputStream(fileUri, "wa"); // "wa" = write + append
-                    initialized = true;
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+            fileUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues);
+            if (fileUri != null) {
+                outputStream = resolver.openOutputStream(fileUri, "wa");
+                initialized = true;
             }
         } else {
-            try {
-                File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-                if (!path.exists()) path.mkdirs();
-                File file = new File(path, fileName);
-                outputStream = new FileOutputStream(file, true); // append mode
-                initialized = true;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            if (!path.exists()) path.mkdirs();
+            File file = new File(path, fileName);
+            outputStream = new FileOutputStream(file, true);
+            initialized = true;
         }
     }
 
@@ -85,7 +84,27 @@ public class FileWriteHelper {
         return fileSize;
     }
 
+    public int getCurrentSize() {
+        return writtenSize;
+    }
+
     public Uri getFileUri() {
         return fileUri;
+    }
+
+    public String getFileId() {
+        return fileId;
+    }
+
+    public String getChatUuid() {
+        return chatUuid;
+    }
+
+    public String getAddress() {
+        return address;
+    }
+
+    public String getFileName() {
+        return fileName;
     }
 }

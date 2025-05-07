@@ -10,14 +10,14 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import network.beechat.kaonic.communication.KaonicEventListener
-import network.beechat.kaonic.communication.LibCommunicationHandler
+import network.beechat.kaonic.communication.KaonicCommunicationManager
 import network.beechat.kaonic.models.KaonicEvent
 import network.beechat.kaonic.models.KaonicEventData
 import network.beechat.kaonic.models.KaonicEventType
 
 object KaonicService : KaonicEventListener {
     private val TAG = "KaonicService"
-    private lateinit var kaonicCommunicationHandler: LibCommunicationHandler
+    private lateinit var kaonicCommunicationHandler: KaonicCommunicationManager
 
     /// list of nodes
     private val _contacts = mutableStateListOf<String>()
@@ -31,7 +31,7 @@ object KaonicService : KaonicEventListener {
     val myAddress: String
         get() = _myAddress
 
-    fun init(kaonicCommunicationHandler: LibCommunicationHandler) {
+    fun init(kaonicCommunicationHandler: KaonicCommunicationManager) {
         this.kaonicCommunicationHandler = kaonicCommunicationHandler
         kaonicCommunicationHandler.setEventListener(this)
         _myAddress = kaonicCommunicationHandler.myAddress;

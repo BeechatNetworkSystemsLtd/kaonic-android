@@ -1,4 +1,4 @@
-package network.beechat.kaonic.libsource;
+package network.beechat.kaonic.impl;
 
 import android.content.Context;
 import android.util.Log;
@@ -18,12 +18,18 @@ public class KaonicLib {
         libraryInit();
     }
 
+    public interface EventListener {
+        void onEventReceived(String jsonData);
+        void onFileChunkRequest(String fileId);
+        void onFileChunkReceived(String fileId, byte[] bytes);
+    }
+
     private static KaonicLib instance;
     private final AudioService audioService = new AudioService();
     private final SecureStorageHelper secureStorageHelper;
 
     private final long pointer;
-    private KaonicDataChannelListener channelListener;
+    private EventListener eventListener;
 
     private KaonicLib(Context context) throws Exception {
 
@@ -44,18 +50,23 @@ public class KaonicLib {
         return instance;
     }
 
-    public void setChannelListener(@NonNull KaonicDataChannelListener channelListener) {
-        this.channelListener = channelListener;
+    public void setEventListener(@NonNull EventListener eventListener) {
+        this.eventListener = eventListener;
     }
 
     public void removeChannelListener() {
-        this.channelListener = null;
+        this.eventListener = null;
     }
 
     public void start(String secret) {
         if (secret != null) {
             nativeStart(this.pointer, secret);
         }
+    }
+
+    public void sendFileChunk(String fileId, byte[] data)
+    {
+        // native
     }
 
     public void transmit(String eventJson) {
@@ -85,8 +96,8 @@ public class KaonicLib {
 
     private void receive(String json) {
         Log.i(TAG, "kaonicDataReceived");
-        if (channelListener != null) {
-             channelListener.onDataReceive(json);
+        if (eventListener != null) {
+             eventListener.onEventReceived(json);
         }
     }
 

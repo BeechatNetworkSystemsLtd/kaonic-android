@@ -7,8 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import network.beechat.kaonic.communication.LibCommunicationHandler
-import network.beechat.kaonic.libsource.KaonicLib
+import network.beechat.kaonic.communication.KaonicCommunicationManager
+import network.beechat.kaonic.impl.KaonicLib
 import network.beechat.kaonic.sampleapp.services.KaonicService
 import network.beechat.kaonic.sampleapp.theme.SampleAppTheme
 
@@ -59,6 +59,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun initKaonicService() {
-        KaonicService.init(LibCommunicationHandler(KaonicLib.getInstance(applicationContext)))
+        KaonicService.init(
+            KaonicCommunicationManager(
+                KaonicLib.getInstance(applicationContext)
+            )
+        )
     }
 }
