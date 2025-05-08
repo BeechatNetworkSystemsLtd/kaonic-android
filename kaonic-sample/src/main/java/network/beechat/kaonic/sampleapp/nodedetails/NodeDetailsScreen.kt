@@ -1,6 +1,9 @@
 package network.beechat.kaonic.sampleapp.nodedetails
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -30,11 +33,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
 import network.beechat.kaonic.models.KaonicEvent
 import network.beechat.kaonic.models.messages.MessageEvent
+import network.beechat.kaonic.models.messages.MessageFileEvent
 import network.beechat.kaonic.models.messages.MessageTextEvent
 import network.beechat.kaonic.sampleapp.extensions.isMy
 import network.beechat.kaonic.sampleapp.extensions.timeFormatted
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,6 +95,8 @@ fun NodeDetailsScreen(viewModel: NodeDetailsViewModel) {
 
 @Composable
 fun MessageItem(message: KaonicEvent<MessageEvent>) {
+    val context = LocalContext.current
+
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (message.isMy()) Alignment.End else Alignment.Start
@@ -111,15 +120,64 @@ fun MessageItem(message: KaonicEvent<MessageEvent>) {
                 )
                 .padding(12.dp)
         ) {
-            Text(
-                text = if (message.data is MessageTextEvent) (message.data as MessageTextEvent).text else "",
-                color = if (message.isMy())
-                    MaterialTheme.colorScheme.onPrimary
-                else
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            when (val data = message.data) {
+                is MessageTextEvent -> {
+                    Text(
+                        text = data.text,
+                        color = if (message.isMy())
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                is MessageFileEvent -> {
+                    Column(
+                        modifier = Modifier.clickable {
+                            val file = File(data.path ?: return@clickable)
+                            val uri: Uri = FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.fileprovider", // You must declare this in AndroidManifest
+                                file
+                            )
+
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, "*/*") // you can specify type like "application/pdf"
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+
+                            context.startActivity(intent)
+                        }
+                    ) {
+                        Text(
+                            text = "\uD83D\uDCC4 ${data.fileName}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (message.isMy())
+                                MaterialTheme.colorScheme.onPrimary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "${data.fileSizeProcessed} / ${data.fileSize} bytes",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (message.isMy())
+                                MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+                else -> {
+                    Text(
+                        text = "(unknown message type)",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         }
+
         Spacer(modifier = Modifier.height(2.dp))
+
         Text(
             text = message.timeFormatted(),
             style = MaterialTheme.typography.bodySmall,

@@ -56,9 +56,21 @@ class ChatService(scope: CoroutineScope) {
 
         val flow = messages.getOrPut(chatId) { MutableStateFlow(arrayListOf()) }
         val oldList = flow.value
-        val newList = ArrayList(oldList)
-        newList.add(event)
-        flow.value = newList
+        val existingMessages = oldList.filter {
+            it.data is MessageEvent && (it.data as MessageEvent).id == event.data.id
+        }
+        if (existingMessages.isNotEmpty()) {
+            val index = oldList.indexOf(existingMessages.first())
+            if (index != -1) {
+                oldList.removeAt(index)
+                oldList.add(index, event)
+            }
+            flow.value = oldList
+        } else {
+            val newList = ArrayList(oldList)
+            newList.add(event)
+            flow.value = newList
+        }
     }
 
     fun sendTextMessage(message: String, address: String) {

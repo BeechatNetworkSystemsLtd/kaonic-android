@@ -1,6 +1,5 @@
 package network.beechat.kaonic.sampleapp.nodedetails
 
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -8,7 +7,6 @@ import kotlinx.coroutines.flow.StateFlow
 import network.beechat.kaonic.models.KaonicEvent
 import network.beechat.kaonic.models.messages.MessageEvent
 import network.beechat.kaonic.sampleapp.services.ChatService
-import network.beechat.kaonic.sampleapp.services.KaonicService
 
 class NodeDetailsViewModelFactory(
     private val address: String,
