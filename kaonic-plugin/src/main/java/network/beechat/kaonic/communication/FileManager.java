@@ -1,4 +1,4 @@
-package network.beechat.kaonic;
+package network.beechat.kaonic.communication;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;
@@ -8,28 +8,31 @@ import android.os.Environment;
 import android.provider.MediaStore;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 
-public class FileReceiver {
-    private Uri fileUri;
-    private OutputStream outputStream;
-    private boolean initialized = false;
-    private int fileSize = 0;
-    private int writtenSize = 0;
-    private String fileName;
-    private String fileId;
-    private String chatUuid;
-    private String address;
+public class FileManager {
+    protected Uri fileUri;
+    protected OutputStream outputStream;
+    protected InputStream inputStream;
+    protected boolean initialized = false;
+    protected int fileSize = 0;
+    protected int processedBytes = 0;
+    protected String fileName;
+    protected String fileId;
+    protected String chatId;
+    protected String address;
 
-    public void open(ContentResolver resolver, String fileName, int fileSize, String fileId, String chatUuid, String address) throws IOException {
+    public void startWrite(ContentResolver resolver, String fileName, int fileSize, String fileId, String chatId, String address) throws FileNotFoundException {
         this.fileSize = fileSize;
         this.fileName = fileName;
-        this.chatUuid = chatUuid;
+        this.chatId = chatId;
         this.fileId = fileId;
         this.address = address;
-        this.writtenSize = 0;
         close();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ContentValues contentValues = new ContentValues();
@@ -46,9 +49,11 @@ public class FileReceiver {
             File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
             if (!path.exists()) path.mkdirs();
             File file = new File(path, fileName);
+            fileUri = Uri.fromFile(file);
             outputStream = new FileOutputStream(file, true);
             initialized = true;
         }
+
     }
 
     /// return true if the file write operation if finished
@@ -58,8 +63,8 @@ public class FileReceiver {
         try {
             outputStream.write(chunk);
             outputStream.flush(); // optional: call less often for better performance
-            writtenSize = writtenSize + chunk.length;
-            return writtenSize >= fileSize;
+            processedBytes = processedBytes + chunk.length;
+            return processedBytes >= fileSize;
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -67,25 +72,67 @@ public class FileReceiver {
         return false;
     }
 
+
+    public boolean startSend(ContentResolver resolver, String fileId, String chatId, String address, String filePath) throws FileNotFoundException {
+        this.chatId = chatId;
+        this.fileId = fileId;
+        this.address = address;
+        close();
+
+        File file = new File(filePath);
+        fileUri = Uri.fromFile(file);
+        if (!file.exists()) return false;
+
+        fileName = file.getName();
+        fileSize = (int) file.length();
+
+        inputStream = new FileInputStream(file);
+        initialized = true;
+
+        return true;
+    }
+
+
+    /// return true when all chunks are sent the file write operation if finished
+    public byte[] nextChunk(int chunkSize) throws IOException {
+        if (!initialized || inputStream == null || isFinished()) return new byte[]{};
+
+        byte[] chunk = new byte[chunkSize];
+
+        inputStream.read(chunk, processedBytes, chunkSize);
+        processedBytes += chunkSize;
+
+        return chunk;
+    }
+
+    public boolean isFinished() {
+        return processedBytes >= fileSize;
+    }
+
     public void close() {
-        if (outputStream != null) {
-            try {
+        try {
+            if (outputStream != null) {
                 outputStream.close();
-            } catch (IOException ignored) {
             }
+            if (inputStream != null) {
+                inputStream.close();
+            }
+        } catch (IOException ignored) {
         }
         outputStream = null;
+        inputStream = null;
         fileUri = null;
         initialized = false;
 
     }
 
+
     public int getFileSize() {
         return fileSize;
     }
 
-    public int getCurrentSize() {
-        return writtenSize;
+    public int getProcessedBytes() {
+        return processedBytes;
     }
 
     public Uri getFileUri() {
@@ -96,8 +143,8 @@ public class FileReceiver {
         return fileId;
     }
 
-    public String getChatUuid() {
-        return chatUuid;
+    public String getChatId() {
+        return chatId;
     }
 
     public String getAddress() {

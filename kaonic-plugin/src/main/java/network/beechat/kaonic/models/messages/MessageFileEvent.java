@@ -6,7 +6,7 @@ import androidx.annotation.NonNull;
 public class MessageFileEvent extends MessageEvent {
     public final @NonNull String fileName;
     public final int fileSize;
-    public int fileSizeReceived = 0;
+    public int fileSizeProcessed = 0;
     public String path;
 
     public MessageFileEvent(@NonNull String address, long timestamp,

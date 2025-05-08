@@ -11,13 +11,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
-import network.beechat.kaonic.FileReceiver;
 import network.beechat.kaonic.impl.KaonicLib;
 import network.beechat.kaonic.models.KaonicEvent;
 import network.beechat.kaonic.models.KaonicEventData;
@@ -37,7 +37,8 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
     final private @NonNull KaonicLib kaonicLib;
     final private @NonNull ContentResolver contentResolver;
     final private ObjectMapper objectMapper = new ObjectMapper();
-    final private Map<String, FileReceiver> fileReceivers = new HashMap<>();
+    final private Map<String, FileManager> fileReceivers = new HashMap<>();
+    final private Map<String, FileManager> fileSenders = new HashMap<>();
     private KaonicEventListener eventListener;
     private String myAddress = "1234567890";
 
@@ -70,6 +71,29 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
             onEventReceived(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.MESSAGE_TEXT,
                     new MessageTextEvent(myAddress, System.currentTimeMillis(), chatId, message))));
         } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void sendFile(String filePath, String address, String chatId) {
+        FileManager fileSender = new FileManager();
+        String fileId = UUID.randomUUID().toString();
+        try {
+            boolean canStart = fileSender.startSend(contentResolver, fileId, chatId, address, filePath);
+            if (canStart) {
+                fileSenders.put(fileId, fileSender);
+                MessageFileEvent messageFileEvent = new MessageFileEvent(fileSender.getAddress(),
+                        System.currentTimeMillis(), fileSender.getFileId(), fileSender.getChatId(),
+                        fileSender.getFileName(), fileSender.getFileSize());
+                try {
+                    KaonicEvent<MessageFileEvent> kaonicEvent = new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
+                            messageFileEvent);
+                    onEventReceived(objectMapper.writeValueAsString(kaonicEvent));
+                } catch (JsonProcessingException e) {
+                    Log.e(TAG, e.toString());
+                }
+            }
+        } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
@@ -136,22 +160,22 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
     }
 
     @Override
-    public void onFileChunkRequest(String fileId) {
+    public void onFileChunkRequest(String fileId, int chunkSize) {
+        FileManager fileSender = fileSenders.get(fileId);
+        if (fileSender == null) return;
 
-    }
+        MessageFileEvent messageFileEvent = new MessageFileEvent(fileSender.getAddress(),
+                System.currentTimeMillis(), fileSender.getFileId(), fileSender.getChatId(),
+                fileSender.getFileName(), fileSender.getFileSize());
+        messageFileEvent.fileSizeProcessed = fileSender.getProcessedBytes();
 
-    @Override
-    public void onFileChunkReceived(String fileId, byte[] bytes) {
-        FileReceiver fileReceiver = fileReceivers.get(fileId);
-        if (fileReceiver != null) {
-            boolean fileFinished = fileReceiver.writeChunk(bytes);
-            MessageFileEvent messageFileEvent = new MessageFileEvent(fileReceiver.getAddress(), 0,
-                    fileReceiver.getFileId(), fileReceiver.getChatUuid(), fileReceiver.getFileName(),
-                    fileReceiver.getFileSize());
-            messageFileEvent.fileSizeReceived = fileReceiver.getCurrentSize();
-            if (fileFinished) {
-                messageFileEvent.path = fileReceiver.getFileUri().getPath();
-                fileReceivers.remove(fileId);
+        try {
+            byte[] chunk = fileSender.nextChunk(chunkSize);
+            kaonicLib.sendFileChunk(fileId, chunk);
+
+            if (fileSender.isFinished()) {
+                fileSender.close();
+                fileSenders.remove(fileId);
             }
 
             try {
@@ -161,13 +185,42 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
             } catch (JsonProcessingException e) {
                 Log.e(TAG, e.toString());
             }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
+
+    }
+
+    @Override
+    public void onFileChunkReceived(String fileId, byte[] bytes) {
+        FileManager fileReceiver = fileReceivers.get(fileId);
+        if (fileReceiver == null) return;
+
+        boolean fileFinished = fileReceiver.writeChunk(bytes);
+        MessageFileEvent messageFileEvent = new MessageFileEvent(fileReceiver.getAddress(),
+                System.currentTimeMillis(), fileReceiver.getFileId(), fileReceiver.getChatId(),
+                fileReceiver.getFileName(), fileReceiver.getFileSize());
+        messageFileEvent.fileSizeProcessed = fileReceiver.getProcessedBytes();
+        if (fileFinished) {
+            messageFileEvent.path = fileReceiver.getFileUri().getPath();
+            fileReceiver.close();
+            fileReceivers.remove(fileId);
+        }
+
+        try {
+            KaonicEvent<MessageFileEvent> kaonicEvent = new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
+                    messageFileEvent);
+            onEventReceived(objectMapper.writeValueAsString(kaonicEvent));
+        } catch (JsonProcessingException e) {
+            Log.e(TAG, e.toString());
+        }
+
     }
 
     private void startFileReceiving(MessageFileStartEvent fileStartEvent) {
-        FileReceiver fileReceiver = new FileReceiver();
+        FileManager fileReceiver = new FileManager();
         try {
-            fileReceiver.open(contentResolver, fileStartEvent.fileName, fileStartEvent.fileSize,
+            fileReceiver.startWrite(contentResolver, fileStartEvent.fileName, fileStartEvent.fileSize,
                     fileStartEvent.id, fileStartEvent.chatId, fileReceiver.getAddress());
             fileReceivers.put(fileStartEvent.id, fileReceiver);
         } catch (IOException e) {

@@ -20,7 +20,7 @@ public class KaonicLib {
 
     public interface EventListener {
         void onEventReceived(String jsonData);
-        void onFileChunkRequest(String fileId);
+        void onFileChunkRequest(String fileId, int chunkSize);
         void onFileChunkReceived(String fileId, byte[] bytes);
     }
 
