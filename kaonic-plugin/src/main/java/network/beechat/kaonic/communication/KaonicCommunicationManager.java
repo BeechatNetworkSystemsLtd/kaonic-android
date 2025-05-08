@@ -88,7 +88,13 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
                 try {
                     KaonicEvent<MessageFileEvent> kaonicEvent = new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
                             messageFileEvent);
-                    onEventReceived(objectMapper.writeValueAsString(kaonicEvent));
+                    transmitData(kaonicEvent);
+
+                    onEventReceived(objectMapper.writeValueAsString(new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
+                            new MessageFileEvent(myAddress,
+                                    System.currentTimeMillis(), fileSender.getFileId(), fileSender.getChatId(),
+                                    fileSender.getFileName(), fileSender.getFileSize()))));
+
                 } catch (JsonProcessingException e) {
                     Log.e(TAG, e.toString());
                 }
