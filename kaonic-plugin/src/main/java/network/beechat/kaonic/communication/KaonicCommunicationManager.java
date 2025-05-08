@@ -78,7 +78,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         try {
             String jsonString = objectMapper.writeValueAsString(kaonicEvent);
             Log.i(TAG, "\uD83D\uDD3C Kaonic data sent:" + jsonString);
-            kaonicLib.transmit(jsonString);
+            kaonicLib.sendMessage(jsonString);
         } catch (JsonProcessingException e) {
             Log.e(TAG, Objects.requireNonNull(e.getMessage()));
             throw new RuntimeException(e);

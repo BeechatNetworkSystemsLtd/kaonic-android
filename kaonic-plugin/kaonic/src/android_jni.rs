@@ -1,8 +1,5 @@
 use std::sync::{Arc, Mutex};
 
-use base64::prelude::BASE64_STANDARD;
-use base64::Engine;
-
 use jni::objects::{GlobalRef, JByteArray, JClass, JMethodID, JObject, JString, JValue};
 use jni::signature::{Primitive, ReturnType};
 use jni::sys::{jlong, jstring};
@@ -11,6 +8,7 @@ use jni::{JNIEnv, JavaVM};
 use rand_core::OsRng;
 
 use reticulum::destination::SingleInputDestination;
+use reticulum::hash::AddressHash;
 use reticulum::identity::PrivateIdentity;
 use reticulum::iface::kaonic::kaonic_grpc::KaonicGrpc;
 use reticulum::iface::tcp_client::TcpClient;
@@ -24,7 +22,7 @@ use log::{self, LevelFilter};
 
 use crate::event::Event;
 use crate::messenger::{Messenger, MessengerCommand, Platform};
-use crate::model::CallAudioData;
+use crate::model::FileChunk;
 
 #[derive(Clone)]
 struct KaonicJni {
@@ -34,6 +32,8 @@ struct KaonicJni {
     start_audio_method: JMethodID,
     stop_audio_method: JMethodID,
     feed_audio_method: JMethodID,
+    request_file_chunk_method: JMethodID,
+    receive_file_chunk_method: JMethodID,
     jvm: Arc<JavaVM>,
 }
 
@@ -41,7 +41,7 @@ struct KaonicLib {
     jni: Arc<Mutex<KaonicJni>>,
     runtime: Arc<Runtime>,
     cancel: CancellationToken,
-    cmd_send: Sender<Event>,
+    cmd_send: Sender<MessengerCommand>,
 }
 
 struct PlatformJni {
@@ -139,6 +139,68 @@ impl Platform for PlatformJni {
             .unwrap()
         };
     }
+
+    fn request_file_chunk(&mut self, address: &String, file_id: &String, chunk_size: usize) {
+        let jni = self.jni.lock().expect("jni locked");
+
+        let mut env = jni
+            .jvm
+            .attach_current_thread_permanently()
+            .expect("failed to attach thread");
+
+        let address = env.new_string(address).expect("new address string");
+        let file_id = env.new_string(file_id).expect("new id string");
+
+        let arguments = [
+            JValue::Object(&address).as_jni(),
+            JValue::Object(&file_id).as_jni(),
+            JValue::Int(chunk_size as i32).as_jni(),
+        ];
+
+        unsafe {
+            env.call_method_unchecked(
+                &jni.obj,
+                jni.request_file_chunk_method,
+                ReturnType::Primitive(Primitive::Void),
+                &arguments[..],
+            )
+            .unwrap()
+        };
+    }
+
+    fn receive_file_chunk(&mut self, address: &String, file_id: &String, data: &[u8]) {
+        let jni = self.jni.lock().expect("jni locked");
+
+        let mut env = jni
+            .jvm
+            .attach_current_thread_permanently()
+            .expect("failed to attach thread");
+
+        let address = env.new_string(address).expect("new address string");
+        let file_id = env.new_string(file_id).expect("new id string");
+
+        let byte_array = env.new_byte_array(data.len() as i32).unwrap();
+        let buffer: &[i8] = unsafe { std::mem::transmute(data) };
+
+        env.set_byte_array_region(&byte_array, 0, buffer)
+            .expect("byte array with data");
+
+        let arguments = [
+            JValue::Object(&address).as_jni(),
+            JValue::Object(&file_id).as_jni(),
+            JValue::Object(&byte_array).as_jni(),
+        ];
+
+        unsafe {
+            env.call_method_unchecked(
+                &jni.obj,
+                jni.receive_file_chunk_method,
+                ReturnType::Primitive(Primitive::Void),
+                &arguments[..],
+            )
+            .unwrap()
+        };
+    }
 }
 
 #[no_mangle]
@@ -188,6 +250,22 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeIni
             .get_method_id(&class, "feedAudio", "([B)V")
             .expect("feed audio method");
 
+        let request_file_chunk_method = env
+            .get_method_id(
+                &class,
+                "requestFileChunk",
+                "(Ljava/lang/String;Ljava/lang/String;[B)V",
+            )
+            .expect("request file chunk method");
+
+        let receive_file_chunk_method = env
+            .get_method_id(
+                &class,
+                "receiveFileChunk",
+                "(Ljava/lang/String;Ljava/lang/String;[B)V",
+            )
+            .expect("receive file chunk method");
+
         KaonicJni {
             _context: env
                 .new_global_ref(context)
@@ -197,6 +275,8 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeIni
             start_audio_method,
             stop_audio_method,
             feed_audio_method,
+            request_file_chunk_method,
+            receive_file_chunk_method,
             jvm,
         }
     };
@@ -213,25 +293,100 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeIni
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeTransmit(
+pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSendMessage(
     mut env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
-    event: JString,
+    message_event: JString,
 ) {
     let lib = unsafe { &*(ptr as *const KaonicLib) };
 
-    let event_str: String = match env.get_string(&event) {
+    let event_str: String = match env.get_string(&message_event) {
         Ok(jstr) => jstr.into(),
         Err(_) => "{}".into(),
     };
 
     let event = serde_json::from_str::<Event>(&event_str);
     if let Ok(event) = event {
-        let _ = lib.cmd_send.blocking_send(event);
+        match event {
+            Event::Message(message) => {
+                let _ = lib
+                    .cmd_send
+                    .blocking_send(MessengerCommand::SendMessage(message));
+            }
+            _ => {}
+        }
     } else if let Err(err) = event {
         log::error!("can't parse event {} '{}'", err, event_str);
     }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSendFile(
+    mut env: JNIEnv,
+    _obj: JObject,
+    ptr: jlong,
+    file_event: JString,
+) {
+    let lib = unsafe { &*(ptr as *const KaonicLib) };
+
+    let event_str: String = match env.get_string(&file_event) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => "{}".into(),
+    };
+
+    let event = serde_json::from_str::<Event>(&event_str);
+    if let Ok(event) = event {
+        match event {
+            Event::FileStart(file_start) => {
+                let _ = lib
+                    .cmd_send
+                    .blocking_send(MessengerCommand::SendFileStart(file_start));
+            }
+            _ => {}
+        }
+    } else if let Err(err) = event {
+        log::error!("can't parse event {} '{}'", err, event_str);
+    }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSendFileChunk(
+    mut env: JNIEnv,
+    _obj: JObject,
+    ptr: jlong,
+    address: JString,
+    id: JString,
+    data: JByteArray,
+) {
+    let lib = unsafe { &*(ptr as *const KaonicLib) };
+
+    let id: String = match env.get_string(&id) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => "".into(),
+    };
+
+    let address: String = match env.get_string(&address) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => "".into(),
+    };
+
+    let data: Vec<u8> = match env.convert_byte_array(data) {
+        Ok(bytes) => bytes,
+        Err(_) => vec![],
+    };
+
+    let file_chunk = FileChunk {
+        address,
+        id: AddressHash::new_from_rand(OsRng).to_hex_string(),
+        file_id: id,
+        chat_id: "".into(),
+        data,
+    };
+
+    let _ = lib
+        .cmd_send
+        .blocking_send(MessengerCommand::SendFileChunk(file_chunk));
 }
 
 #[no_mangle]
@@ -299,16 +454,6 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSen
         Ok(bytes) => bytes,
         Err(_) => vec![],
     };
-
-    let call_audio_data = CallAudioData {
-        address: "".into(),
-        call_id: "".into(),
-        data: BASE64_STANDARD.encode(data),
-    };
-
-    let _ = lib
-        .cmd_send
-        .blocking_send(Event::CallAudioData(call_audio_data));
 }
 
 #[no_mangle]
@@ -332,7 +477,7 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeGen
 
 async fn messenger_task(
     identity: PrivateIdentity,
-    mut cmd_rx: tokio::sync::mpsc::Receiver<Event>,
+    mut cmd_rx: tokio::sync::mpsc::Receiver<MessengerCommand>,
     jni: Arc<Mutex<KaonicJni>>,
     cancel: CancellationToken,
 ) {
@@ -362,20 +507,8 @@ async fn messenger_task(
             _ = cancel.cancelled() => {
                 break;
             },
-
             Some(cmd) = cmd_rx.recv() => {
-                match cmd {
-                    Event::Message(message) => {
-                        messenger.send(MessengerCommand::SendMessage(message)).await;
-                    }
-                    Event::CallAudioData(call_audio_data) => {
-                        messenger.send(MessengerCommand::CallAudioData(call_audio_data)).await;
-                    },
-                    Event::ContactFound(_)=>{},
-                    Event::FileStart(_)=>{},
-                    Event::FileChunk(_)=>{},
-                    Event::Acknowledge(_)=>{},
-                }
+                messenger.send(cmd).await;
             },
         }
     }

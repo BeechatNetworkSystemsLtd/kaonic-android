@@ -4,9 +4,9 @@ mod ack_manager;
 mod cache;
 
 pub mod event;
-pub mod model;
 pub mod messenger;
+pub mod model;
 
 #[cfg(feature = "android")]
-pub mod jni;
 
+mod android_jni;

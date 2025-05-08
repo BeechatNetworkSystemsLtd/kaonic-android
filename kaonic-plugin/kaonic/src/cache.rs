@@ -31,10 +31,4 @@ impl<T: std::hash::Hash + Eq + Clone> CacheSet<T> {
 
         return true;
     }
-
-    pub fn contains(&self, value: &T) -> bool {
-        self.set.contains(value)
-    }
-
-
 }
