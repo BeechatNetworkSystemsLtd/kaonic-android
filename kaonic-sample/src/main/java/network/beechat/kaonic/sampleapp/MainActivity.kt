@@ -61,7 +61,8 @@ class MainActivity : ComponentActivity() {
     private fun initKaonicService() {
         KaonicService.init(
             KaonicCommunicationManager(
-                KaonicLib.getInstance(applicationContext)
+                KaonicLib.getInstance(applicationContext),
+                contentResolver
             )
         )
     }

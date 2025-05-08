@@ -204,14 +204,14 @@ impl Platform for PlatformJni {
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_libraryInit(_env: JNIEnv) {
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_libraryInit(_env: JNIEnv) {
     android_log::init("kaonic").unwrap();
     log::set_max_level(LevelFilter::Debug);
     log::info!("kaonic library initialized");
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeInit(
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
     mut env: JNIEnv,
     obj: JObject,
     context: JObject,
@@ -254,7 +254,7 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeIni
             .get_method_id(
                 &class,
                 "requestFileChunk",
-                "(Ljava/lang/String;Ljava/lang/String;[B)V",
+                "(Ljava/lang/String;Ljava/lang/String;I)V",
             )
             .expect("request file chunk method");
 
@@ -293,7 +293,7 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeIni
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSendMessage(
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendMessage(
     mut env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
@@ -322,7 +322,7 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSen
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSendFile(
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendFile(
     mut env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
@@ -351,7 +351,7 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSen
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSendFileChunk(
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendFileChunk(
     mut env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
@@ -390,7 +390,7 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSen
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeDestroy(
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeDestroy(
     _env: JNIEnv,
     _class: JClass,
     ptr: jlong,
@@ -403,7 +403,7 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeDes
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeStart(
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
     mut env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
@@ -442,7 +442,7 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSta
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSendAudio(
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendAudio(
     env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
@@ -457,7 +457,7 @@ pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeSen
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_libsource_KaonicLib_nativeGenerate(
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeGenerate(
     env: JNIEnv,
     _obj: JObject,
     _ptr: jlong,
