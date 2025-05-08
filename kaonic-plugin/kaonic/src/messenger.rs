@@ -415,7 +415,7 @@ async fn handle_out_data<T: Platform + Send + 'static>(
                                 Event::Acknowledge(_) => {},
                             }
                         } else if let Err(err) = event {
-                            log::error!("messenger: invalid event {}", err);
+                            log::error!("messenger: invalid out event {}", err);
                         }
                     },
                     LinkEvent::Activated => {
@@ -443,7 +443,7 @@ async fn handle_in_data<T: Platform + Send + 'static>(
             Ok(link_event) = link_events.recv() => {
                 match link_event.event {
                     LinkEvent::Data(data)=> {
-                        let event =  serde_json::from_slice::<Event>(data.as_slice());
+                        let event = Deserialize::deserialize(&mut Deserializer::new(data.as_slice()));
                         if let Ok(event) = event {
                             match event {
                                 Event::Acknowledge(ack) => {
@@ -452,7 +452,7 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                                 _ => { },
                             }
                         } else if let Err(err) = event {
-                            log::error!("messenger: invalid event {}", err);
+                            log::error!("messenger: invalid in event {}", err);
                         }
                     },
                     LinkEvent::Activated => {
