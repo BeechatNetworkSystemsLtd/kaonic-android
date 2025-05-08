@@ -77,6 +77,11 @@ class ChatService(scope: CoroutineScope) {
         KaonicService.sendTextMessage(message, address, contactChats[address] ?: "")
     }
 
+    fun sendFileMessage(filePath: String, address: String) {
+        KaonicService.sendFileMessage(filePath, address, contactChats[address] ?: "")
+
+    }
+
     private fun checkChatId(chatId: String, address: String) {
         if (!contactChats.containsKey(address)) {
             contactChats[address] = chatId

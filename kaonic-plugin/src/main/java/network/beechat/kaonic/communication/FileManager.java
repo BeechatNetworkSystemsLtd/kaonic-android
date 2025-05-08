@@ -2,10 +2,12 @@ package network.beechat.kaonic.communication;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.provider.OpenableColumns;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -73,20 +75,24 @@ public class FileManager {
     }
 
 
-    public boolean startSend(ContentResolver resolver, String fileId, String chatId, String address, String filePath) throws FileNotFoundException {
+    public boolean startSend(ContentResolver resolver, String fileId, String chatId, String address, String fileUriString) throws FileNotFoundException {
         this.chatId = chatId;
         this.fileId = fileId;
         this.address = address;
+        Uri uri=Uri.parse(fileUriString);
+        fileUri = uri;
         close();
 
-        File file = new File(filePath);
-        fileUri = Uri.fromFile(file);
-        if (!file.exists()) return false;
+        fileName = uri.getLastPathSegment();
+        Cursor cursor = resolver.query(uri, null, null, null, null);
+        if (cursor != null) {
+            int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
+            if (cursor.moveToFirst() && sizeIndex != -1) {
+                fileSize = (int) cursor.getLong(sizeIndex);
+            }
+        }
 
-        fileName = file.getName();
-        fileSize = (int) file.length();
-
-        inputStream = new FileInputStream(file);
+        inputStream = resolver.openInputStream(uri);
         initialized = true;
 
         return true;

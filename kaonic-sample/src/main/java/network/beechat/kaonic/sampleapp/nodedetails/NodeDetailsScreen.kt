@@ -2,6 +2,8 @@ package network.beechat.kaonic.sampleapp.nodedetails
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -66,9 +68,12 @@ fun NodeDetailsScreen(viewModel: NodeDetailsViewModel) {
             )
         },
         bottomBar = {
-            network.beechat.kaonic.sampleapp.ChatInput(
+            ChatInput(
                 value = messageText,
                 onValueChange = { messageText = it },
+                onFileSelected = {
+                    viewModel.sendFile(it)
+                },
                 onSendMessage = {
                     if (messageText.isNotBlank()) {
                         viewModel.sendMessage(messageText)
@@ -142,7 +147,10 @@ fun MessageItem(message: KaonicEvent<MessageEvent>) {
                             )
 
                             val intent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(uri, "*/*") // you can specify type like "application/pdf"
+                                setDataAndType(
+                                    uri,
+                                    "*/*"
+                                ) // you can specify type like "application/pdf"
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
 
@@ -167,6 +175,7 @@ fun MessageItem(message: KaonicEvent<MessageEvent>) {
                         )
                     }
                 }
+
                 else -> {
                     Text(
                         text = "(unknown message type)",
@@ -192,8 +201,24 @@ fun MessageItem(message: KaonicEvent<MessageEvent>) {
 fun ChatInput(
     value: String,
     onValueChange: (String) -> Unit,
+    onFileSelected: (Uri) -> Unit,
     onSendMessage: () -> Unit
 ) {
+    val context = LocalContext.current
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri: Uri? ->
+            if (uri != null) {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+                onFileSelected(uri)
+            }
+        }
+    )
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shadowElevation = 4.dp
@@ -204,7 +229,7 @@ fun ChatInput(
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { /* Handle file attachment */ }) {
+            IconButton(onClick = { filePickerLauncher.launch(arrayOf("*/*")) }) {
                 Icon(
                     imageVector = Icons.Default.AddCircle,
                     contentDescription = "Attach File"

@@ -1,5 +1,6 @@
 package network.beechat.kaonic.sampleapp.nodedetails
 
+import android.net.Uri
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -31,6 +32,10 @@ class NodeDetailsViewModel(
 
     fun sendMessage(message: String) {
         chatService.sendTextMessage(message, nodeAddress)
+    }
+
+    fun sendFile(fileUri: Uri) {
+        chatService.sendFileMessage(fileUri.toString(), nodeAddress)
     }
 
 }

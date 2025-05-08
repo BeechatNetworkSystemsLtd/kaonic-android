@@ -82,11 +82,11 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
             boolean canStart = fileSender.startSend(contentResolver, fileId, chatId, address, filePath);
             if (canStart) {
                 fileSenders.put(fileId, fileSender);
-                MessageFileEvent messageFileEvent = new MessageFileEvent(fileSender.getAddress(),
+                MessageFileStartEvent messageFileEvent = new MessageFileStartEvent(fileSender.getAddress(),
                         System.currentTimeMillis(), fileSender.getFileId(), fileSender.getChatId(),
                         fileSender.getFileName(), fileSender.getFileSize());
                 try {
-                    KaonicEvent<MessageFileEvent> kaonicEvent = new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
+                    KaonicEvent<MessageFileStartEvent> kaonicEvent = new KaonicEvent<>(KaonicEventType.MESSAGE_FILE_START,
                             messageFileEvent);
                     transmitData(kaonicEvent);
 
@@ -227,8 +227,8 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         FileManager fileReceiver = new FileManager();
         try {
             fileReceiver.startWrite(contentResolver, fileStartEvent.fileName, fileStartEvent.fileSize,
-                    fileStartEvent.id, fileStartEvent.chatId, fileReceiver.getAddress());
-            fileReceivers.put(fileStartEvent.id, fileReceiver);
+                    fileStartEvent.fileId, fileStartEvent.chatId, fileReceiver.getAddress());
+            fileReceivers.put(fileStartEvent.fileId, fileReceiver);
         } catch (IOException e) {
             Log.e(TAG, e.toString());
         }

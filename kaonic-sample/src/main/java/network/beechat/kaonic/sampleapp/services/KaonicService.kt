@@ -53,6 +53,10 @@ object KaonicService : KaonicEventListener {
         kaonicCommunicationHandler.sendMessage(address, message, chatId)
     }
 
+    fun sendFileMessage(filePath: String, address: String, chatId: String) {
+        kaonicCommunicationHandler.sendFile(filePath, address, chatId)
+    }
+
     override fun onEventReceived(event: KaonicEvent<KaonicEventData>) {
         CoroutineScope(Dispatchers.Default).launch {
             Log.i(TAG, "onEventReceived ${event.data.javaClass.name}")
