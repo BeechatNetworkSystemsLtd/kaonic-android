@@ -177,7 +177,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
 
         try {
             byte[] chunk = fileSender.nextChunk(chunkSize);
-            kaonicLib.sendFileChunk(fileId, chunk);
+            kaonicLib.sendFileChunk(fileSender.getAddress(), fileId, chunk);
 
             if (fileSender.isFinished()) {
                 fileSender.close();
