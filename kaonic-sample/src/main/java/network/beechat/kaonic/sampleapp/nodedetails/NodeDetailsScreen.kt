@@ -47,7 +47,8 @@ import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NodeDetailsScreen(viewModel: NodeDetailsViewModel) {
+fun NodeDetailsScreen(viewModel: NodeDetailsViewModel,
+                      onBack: () -> Unit) {
     val messages by viewModel.getMessages(viewModel.nodeAddress)
         .collectAsState(initial = emptyList())
 
@@ -58,7 +59,7 @@ fun NodeDetailsScreen(viewModel: NodeDetailsViewModel) {
             TopAppBar(
                 title = { Text(viewModel.nodeAddress) },
                 navigationIcon = {
-                    IconButton(onClick = { }) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },

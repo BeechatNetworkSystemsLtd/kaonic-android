@@ -55,7 +55,7 @@ fun AppNavigator() {
             val address = backStackEntry.arguments?.getString("address") ?: "Unknown"
             val viewModel: NodeDetailsViewModel =
                 viewModel(factory = NodeDetailsViewModelFactory(address, chatService))
-            NodeDetailsScreen(viewModel = viewModel)
+            NodeDetailsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
     }
 }
