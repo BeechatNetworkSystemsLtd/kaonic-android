@@ -222,7 +222,7 @@ async fn handle_announces<T: Platform + Send + 'static>(
 
                 let link = transport.lock().await.link(destination.desc).await;
 
-                log::debug!("messenger: announce contact {}  link={}", destination.desc.address_hash, link.lock().await.id());
+                log::trace!("messenger: announce contact {}  link={}", destination.desc.address_hash, link.lock().await.id());
 
                 // TODO: fill contact data
                 let contact = Contact {
@@ -303,7 +303,7 @@ async fn handle_commands<T: Platform>(
 
                         log::debug!("messenger: send file {}({}) {}kBytes to {}", file.file_name, file.file_id, file.file_size / 1024, address);
 
-                        let result = send_ack_event(&file.id.clone(), Event::FileStart(file), &address, handler.clone()).await;
+                        let result = send_ack_event(&file.id.clone(), Event::FileStart(file), &contact_address, handler.clone()).await;
                         if let Ok(_) = result {
                             handler.lock().await.platform.lock().await.request_file_chunk(&address_str, &file_id, PACKET_MDU / 2);
                         }
@@ -455,10 +455,8 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                             log::error!("messenger: invalid in event {}", err);
                         }
                     },
-                    LinkEvent::Activated => {
-                    },
-                    LinkEvent::Closed => {
-                    },
+                    LinkEvent::Activated => { },
+                    LinkEvent::Closed => { },
                 }
             },
             _ = cancel.cancelled() => {
