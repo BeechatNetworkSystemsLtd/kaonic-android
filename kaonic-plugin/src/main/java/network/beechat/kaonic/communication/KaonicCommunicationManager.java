@@ -88,7 +88,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
                 try {
                     KaonicEvent<MessageFileStartEvent> kaonicEvent = new KaonicEvent<>(KaonicEventType.MESSAGE_FILE_START,
                             messageFileEvent);
-                    transmitData(kaonicEvent);
+                    transmitFile(kaonicEvent);
 
                     onEventReceived(objectMapper.writeValueAsString(new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
                             new MessageFileEvent(myAddress,
@@ -109,6 +109,18 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
             String jsonString = objectMapper.writeValueAsString(kaonicEvent);
             Log.i(TAG, "\uD83D\uDD3C Kaonic data sent:" + jsonString);
             kaonicLib.sendMessage(jsonString);
+        } catch (JsonProcessingException e) {
+            Log.e(TAG, Objects.requireNonNull(e.getMessage()));
+            throw new RuntimeException(e);
+        }
+    }
+
+
+    private void transmitFile(KaonicEvent kaonicEvent) {
+        try {
+            String jsonString = objectMapper.writeValueAsString(kaonicEvent);
+            Log.i(TAG, "\uD83D\uDD3C Kaonic data sent:" + jsonString);
+            kaonicLib.sendFile(jsonString);
         } catch (JsonProcessingException e) {
             Log.e(TAG, Objects.requireNonNull(e.getMessage()));
             throw new RuntimeException(e);

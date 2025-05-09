@@ -20,7 +20,9 @@ public class KaonicLib {
 
     public interface EventListener {
         void onEventReceived(String jsonData);
+
         void onFileChunkRequest(String fileId, int chunkSize);
+
         void onFileChunkReceived(String fileId, byte[] bytes);
     }
 
@@ -77,20 +79,25 @@ public class KaonicLib {
     }
 
     public String generate() {
-       String json = nativeGenerate(this.pointer);
-       // TODO: Parse JSON
-       return json;
+        String json = nativeGenerate(this.pointer);
+        // TODO: Parse JSON
+        return json;
     }
 
     private native void nativeSendMessage(long ptr, String eventJson);
+
     private native void nativeSendFile(long ptr, String eventJson);
 
     private native void nativeStart(long ptr, String privateKey);
+
     private native void nativeStop(long ptr);
 
     private native long nativeInit(Context context);
+
     private native void nativeDestroy(long ptr);
+
     private native void nativeSendAudio(long ptr, byte[] data);
+
     private native void nativeSendFileChunk(long ptr, String address, String id, byte[] data);
 
     private native String nativeGenerate(long ptr);
@@ -100,7 +107,7 @@ public class KaonicLib {
     private void receive(String json) {
         Log.i(TAG, "kaonicDataReceived");
         if (eventListener != null) {
-             eventListener.onEventReceived(json);
+            eventListener.onEventReceived(json);
         }
     }
 
@@ -129,10 +136,17 @@ public class KaonicLib {
     }
 
     private void requestFileChunk(String address, String fileId, int chunkSize) {
-
+        Log.i(TAG, "requestFileChunk");
+        if (eventListener != null) {
+            eventListener.onFileChunkRequest(fileId, chunkSize);
+        }
     }
 
     private void receiveFileChunk(String address, String fileId, byte[] data) {
+        Log.i(TAG, "receiveFileChunk");
+        if (eventListener != null) {
+            eventListener.onFileChunkReceived(fileId, data);
+        }
 
     }
 
