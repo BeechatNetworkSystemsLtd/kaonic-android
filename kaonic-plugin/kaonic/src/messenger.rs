@@ -271,7 +271,7 @@ async fn send_ack_event<T: Platform>(
     result
 }
 
-async fn handle_commands<T: Platform>(
+async fn handle_commands<T: Platform + Send + 'static>(
     handler: Arc<Mutex<MessengerHandler<T>>>,
     cancel: CancellationToken,
     contact_destination: Arc<Mutex<SingleInputDestination>>,
@@ -305,11 +305,27 @@ async fn handle_commands<T: Platform>(
 
                         let result = send_ack_event(&file.id.clone(), Event::FileStart(file), &contact_address, handler.clone()).await;
                         if let Ok(_) = result {
-                            handler.lock().await.platform.lock().await.request_file_chunk(&address_str, &file_id, PACKET_MDU / 2);
+                            let platform = handler.lock().await.platform.clone();
+                            tokio::spawn(async move {
+                                platform.lock().await.request_file_chunk(&address_str, &file_id, PACKET_MDU / 2);
+                            });
                         }
                     },
-                    MessengerCommand::SendFileChunk(_) => {
+                    MessengerCommand::SendFileChunk(file) => {
 
+                        let address_str = file.address.clone();
+                        let file_id = file.file_id.clone();
+                        let address = AddressHash::new_from_hex_string(&address_str).unwrap();
+
+                        log::debug!("messenger: send file chunk {}  to {}", file.file_id, address);
+
+                        let result = send_ack_event(&file.id.clone(), Event::FileChunk(file), &contact_address, handler.clone()).await;
+                        if let Ok(_) = result {
+                            let platform = handler.lock().await.platform.clone();
+                            tokio::spawn(async move {
+                                platform.lock().await.request_file_chunk(&address_str, &file_id, PACKET_MDU / 2);
+                            });
+                        }
                     },
                     MessengerCommand::SendMessage(message) => {
 

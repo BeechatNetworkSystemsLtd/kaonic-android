@@ -164,7 +164,7 @@ impl Platform for PlatformJni {
                 ReturnType::Primitive(Primitive::Void),
                 &arguments[..],
             )
-            .unwrap()
+            .expect("requests method call");
         };
     }
 

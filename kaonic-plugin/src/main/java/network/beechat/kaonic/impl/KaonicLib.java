@@ -1,6 +1,8 @@
 package network.beechat.kaonic.impl;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -138,16 +140,19 @@ public class KaonicLib {
     private void requestFileChunk(String address, String fileId, int chunkSize) {
         Log.i(TAG, "requestFileChunk");
         if (eventListener != null) {
-            eventListener.onFileChunkRequest(fileId, chunkSize);
+            new Handler(Looper.getMainLooper()).post(() -> {
+                eventListener.onFileChunkRequest(fileId, chunkSize);
+            });
         }
     }
 
     private void receiveFileChunk(String address, String fileId, byte[] data) {
         Log.i(TAG, "receiveFileChunk");
         if (eventListener != null) {
-            eventListener.onFileChunkReceived(fileId, data);
+            new Handler(Looper.getMainLooper()).post(() -> {
+                eventListener.onFileChunkReceived(fileId, data);
+            });
         }
-
     }
 
     private void onAudioResult(int size, byte[] buffer) {
