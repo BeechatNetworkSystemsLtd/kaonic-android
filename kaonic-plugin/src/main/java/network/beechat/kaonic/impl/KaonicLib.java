@@ -15,6 +15,7 @@ import network.beechat.kaonic.storage.SecureStorageHelper;
 public class KaonicLib {
     final private String TAG = "KaonicLib";
 
+    // Load and initialize native Kaonic library
     static {
         System.loadLibrary("kaonic");
         libraryInit();
@@ -44,7 +45,8 @@ public class KaonicLib {
 
         Log.i(TAG, "KaonicLib initialized");
 
-        start(loadSecret());
+        // TODO: move start from communication service
+        start(loadSecret(), "{\"name\":\"Kaonic\"}");
     }
 
     public static synchronized KaonicLib getInstance(Context context) throws Exception {
@@ -62,9 +64,9 @@ public class KaonicLib {
         this.eventListener = null;
     }
 
-    public void start(String secret) {
+    public void start(String secret, String contact) {
         if (secret != null) {
-            nativeStart(this.pointer, secret);
+            nativeStart(this.pointer, secret, contact);
         }
     }
 
@@ -86,59 +88,48 @@ public class KaonicLib {
         return json;
     }
 
-    private native void nativeSendMessage(long ptr, String eventJson);
-
-    private native void nativeSendFile(long ptr, String eventJson);
-
-    private native void nativeStart(long ptr, String privateKey);
-
-    private native void nativeStop(long ptr);
+    private static native void libraryInit();
 
     private native long nativeInit(Context context);
-
     private native void nativeDestroy(long ptr);
-
-    private native void nativeSendAudio(long ptr, byte[] data);
-
-    private native void nativeSendFileChunk(long ptr, String address, String id, byte[] data);
+    private native void nativeStart(long ptr, String secret, String contact);
+    private native void nativeStop(long ptr);
 
     private native String nativeGenerate(long ptr);
 
-    private static native void libraryInit();
+    private native void nativeSendMessage(long ptr, String eventJson);
+    private native void nativeSendFile(long ptr, String eventJson);
+    private native void nativeSendAudio(long ptr, byte[] data);
+    private native void nativeSendFileChunk(long ptr, String address, String id, byte[] data);
 
     private void receive(String json) {
-        Log.i(TAG, "kaonicDataReceived");
-        if (eventListener != null) {
+        if (eventListener != null && json != null) {
             eventListener.onEventReceived(json);
         }
     }
 
     public void startAudio() {
-        Log.i(TAG, "startAudio requested");
         audioService.startPlaying();
         audioService.startRecording();
     }
 
     public void stopAudio() {
-        Log.i(TAG, "stopAudio requested");
         audioService.stopRecording();
         audioService.stopPlaying();
     }
 
     public void feedAudio(byte[] buffer) {
-        Log.i(TAG, "playAudio requested");
         audioService.play(buffer, buffer.length);
     }
 
     /**
      * Send file data chunk to specified address and file id
      */
-    public void sendFileChunk(String address, String id, byte[] data) {
-        nativeSendFileChunk(this.pointer, address, id, data);
+    public void sendFileChunk(String address, String fileId, byte[] data) {
+        nativeSendFileChunk(this.pointer, address, fileId, data);
     }
 
     private void requestFileChunk(String address, String fileId, int chunkSize) {
-        Log.i(TAG, "requestFileChunk");
         if (eventListener != null) {
             new Handler(Looper.getMainLooper()).post(() -> {
                 eventListener.onFileChunkRequest(fileId, chunkSize);
@@ -147,7 +138,6 @@ public class KaonicLib {
     }
 
     private void receiveFileChunk(String address, String fileId, byte[] data) {
-        Log.i(TAG, "receiveFileChunk");
         if (eventListener != null) {
             new Handler(Looper.getMainLooper()).post(() -> {
                 eventListener.onFileChunkReceived(fileId, data);
@@ -160,8 +150,8 @@ public class KaonicLib {
         nativeSendAudio(this.pointer, buffer);
     }
 
+    // TODO: Remove secret management from this class
     private String loadSecret() {
-        Log.i(TAG, "checkPrivateKey");
         String secret = null;
         try {
             String SECRET_TAG = "KAONIC_SECRET";
@@ -169,7 +159,6 @@ public class KaonicLib {
             if (secret == null) {
                 secret = generate();
                 secureStorageHelper.put(SECRET_TAG, secret);
-                Log.i(TAG, "private key stored");
             }
 
         } catch (Exception e) {

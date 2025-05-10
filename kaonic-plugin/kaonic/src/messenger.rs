@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use rand_core::OsRng;
 use reticulum::{
-    destination::{link::LinkEvent, DestinationName, SingleInputDestination},
+    destination::{link::LinkEvent, link_map::LinkMap, DestinationName, SingleInputDestination},
     hash::AddressHash,
     identity::PrivateIdentity,
     iface::InterfaceManager,
@@ -25,15 +25,17 @@ use crate::{
     cache::CacheSet,
     event::Event,
     model::{
-        Acknowledge, CallAudioData, Contact, ContactData, FileChunk, FileStart, Message,
-        MessengerError,
+        Acknowledge, AnnounceData, CallAudioData, Contact, ContactConnect, ContactData, FileChunk,
+        FileStart, Message, MessengerError,
     },
 };
 
 struct MessengerHandler<T: Platform> {
-    id: PrivateIdentity,
+    identity: PrivateIdentity,
+    contact: ContactData,
     transport: Arc<Mutex<Transport>>,
     platform: Arc<Mutex<T>>,
+    in_link_map: Arc<Mutex<LinkMap>>,
     known_ids: CacheSet<String>,
     ack_manager: AckManager<String>,
 }
@@ -61,7 +63,12 @@ impl<T: Platform> Drop for Messenger<T> {
 }
 
 impl<T: Platform + Send + 'static> Messenger<T> {
-    pub fn new(id: PrivateIdentity, name: impl Into<String>, platform: T) -> Self {
+    pub fn new(
+        identity: PrivateIdentity,
+        contact: ContactData,
+        name: impl Into<String>,
+        platform: T,
+    ) -> Self {
         let transport = Transport::new(TransportConfig::new(
             name,
             &PrivateIdentity::new_from_rand(OsRng),
@@ -71,17 +78,19 @@ impl<T: Platform + Send + 'static> Messenger<T> {
         let (cmd_send, cmd_recv) = tokio::sync::mpsc::channel::<MessengerCommand>(1);
 
         let handler = MessengerHandler::<T> {
-            id,
+            identity,
+            contact,
             transport: Arc::new(Mutex::new(transport)),
             platform: Arc::new(Mutex::new(platform)),
             known_ids: CacheSet::new(100),
+            in_link_map: Arc::new(Mutex::new(LinkMap::new())),
             ack_manager: AckManager::new(),
         };
 
         let handler = Arc::new(Mutex::new(handler));
-
         let cancel = CancellationToken::new();
-        tokio::spawn(handle_messenger(handler.clone(), cmd_recv, cancel.clone()));
+
+        tokio::spawn(handle_messenger(handler.clone(), cancel.clone(), cmd_recv));
 
         Self {
             handler,
@@ -158,20 +167,21 @@ impl<T: Platform> MessengerHandler<T> {
     }
 }
 
+/// Entry point for messenger async handler's
 async fn handle_messenger<T: Platform + Send + 'static>(
     handler: Arc<Mutex<MessengerHandler<T>>>,
-    cmd_recv: Receiver<MessengerCommand>,
     cancel: CancellationToken,
+    cmd_recv: Receiver<MessengerCommand>,
 ) {
     let transport = handler.lock().await.transport.clone();
 
     let contact_destination = {
-        let id = handler.lock().await.id.clone();
+        let identity = handler.lock().await.identity.clone();
 
         transport
             .lock()
             .await
-            .add_destination(id, Messenger::<T>::destination_name())
+            .add_destination(identity, Messenger::<T>::destination_name())
             .await
     };
 
@@ -183,7 +193,7 @@ async fn handle_messenger<T: Platform + Send + 'static>(
     let _ = tokio::join!(
         handle_announces(handler.clone(), cancel.clone()),
         handle_advertise(handler.clone(), cancel.clone(), contact_destination.clone()),
-        handle_out_data(handler.clone(), cancel.clone()),
+        handle_out_data(handler.clone(), cancel.clone(), contact_destination.clone(),),
         handle_in_data(handler.clone(), cancel.clone()),
         handle_commands(
             handler.clone(),
@@ -194,6 +204,7 @@ async fn handle_messenger<T: Platform + Send + 'static>(
     );
 }
 
+/// Periodically sends announces for contact destination
 async fn handle_announces<T: Platform + Send + 'static>(
     handler: Arc<Mutex<MessengerHandler<T>>>,
     cancel: CancellationToken,
@@ -214,27 +225,28 @@ async fn handle_announces<T: Platform + Send + 'static>(
             _ = cancel.cancelled() => {
                 break;
             },
-            Ok(destination) = announces.recv() => {
-                let destination = destination.lock().await;
-                // TODO: check if destination is compatible
+            Ok(announce) = announces.recv() => {
 
-                let transport = handler.lock().await.transport.clone();
+                let announce_data = Deserialize::deserialize(&mut Deserializer::new(announce.app_data.as_slice()));
 
-                let link = transport.lock().await.link(destination.desc).await;
+                if let Ok(announce_data) = announce_data {
+                    let announce_data: AnnounceData = announce_data;
+                    let destination = announce.destination.lock().await;
 
-                log::trace!("messenger: announce contact {}  link={}", destination.desc.address_hash, link.lock().await.id());
+                    let transport = handler.lock().await.transport.clone();
+                    let link = transport.lock().await.link(destination.desc).await;
 
-                // TODO: fill contact data
-                let contact = Contact {
-                    address: destination.desc.address_hash.to_hex_string(),
-                    data: ContactData {
-                        name: "contact".into(),
-                    },
-                };
+                    log::trace!("messenger: announce contact '{}'={} link={}", announce_data.contact.name, destination.desc.address_hash, link.lock().await.id());
 
-                let platform = handler.lock().await.platform.clone();
+                    let contact = Contact {
+                        address: destination.desc.address_hash.to_hex_string(),
+                        contact: announce_data.contact,
+                    };
 
-                platform.lock().await.send_event(&Event::ContactFound(contact));
+                    let platform = handler.lock().await.platform.clone();
+
+                    platform.lock().await.send_event(&Event::ContactFound(contact));
+                }
             }
         }
     }
@@ -317,7 +329,7 @@ async fn handle_commands<T: Platform + Send + 'static>(
                         let file_id = file.file_id.clone();
                         let address = AddressHash::new_from_hex_string(&address_str).unwrap();
 
-                        log::debug!("messenger: send file chunk {}  to {}", file.file_id, address);
+                        log::trace!("messenger: send file chunk {}  to {}", file.file_id, address);
 
                         let result = send_ack_event(&file.id.clone(), Event::FileChunk(file), &contact_address, handler.clone()).await;
                         if let Ok(_) = result {
@@ -347,20 +359,25 @@ async fn handle_advertise<T: Platform + Send + 'static>(
 ) {
     let transport = handler.lock().await.transport.clone();
 
+    let mut announce_data_buf = Vec::new();
+
+    let announce_data = AnnounceData {
+        contact: handler.lock().await.contact.clone(),
+    };
+
+    let _ = announce_data.serialize(&mut Serializer::new(&mut announce_data_buf));
+
     loop {
         transport
             .lock()
             .await
-            .send_announce(&contact_destination, None)
+            .send_announce(&contact_destination, Some(&announce_data_buf))
             .await;
 
         tokio::select! {
+            _ = tokio::time::sleep(Duration::from_secs(5)) => { },
             _ = cancel.cancelled() => {
                 break;
-            },
-
-            _ = tokio::time::sleep(Duration::from_secs(5)) => {
-
             },
         }
     }
@@ -406,7 +423,10 @@ async fn handle_ack_event<T: Platform + Send + 'static>(
 async fn handle_out_data<T: Platform + Send + 'static>(
     handler: Arc<Mutex<MessengerHandler<T>>>,
     cancel: CancellationToken,
+    contact_destination: Arc<Mutex<SingleInputDestination>>,
 ) {
+    let contact_address = contact_destination.lock().await.desc.address_hash;
+
     let transport = handler.lock().await.transport.clone();
     let mut link_events = transport.lock().await.out_link_events();
     loop {
@@ -429,6 +449,7 @@ async fn handle_out_data<T: Platform + Send + 'static>(
                                 },
                                 Event::ContactFound(_) => {},
                                 Event::Acknowledge(_) => {},
+                                Event::ContactConnect(_) => {},
                             }
                         } else if let Err(err) = event {
                             log::error!("messenger: invalid out event {}", err);
@@ -465,6 +486,11 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                                 Event::Acknowledge(ack) => {
                                     handler.lock().await.ack_manager.handle_ack(ack.id).await;
                                 },
+                                Event::ContactConnect(connect) => {
+                                    if let Ok(address) = AddressHash::new_from_hex_string(&connect.address) {
+                                        handler.lock().await.in_link_map.lock().await.insert(&link_event.id, &address);
+                                    }
+                                },
                                 _ => { },
                             }
                         } else if let Err(err) = event {
@@ -472,7 +498,9 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                         }
                     },
                     LinkEvent::Activated => { },
-                    LinkEvent::Closed => { },
+                    LinkEvent::Closed => {
+                        handler.lock().await.in_link_map.lock().await.remove(&link_event.id);
+                    },
                 }
             },
             _ = cancel.cancelled() => {

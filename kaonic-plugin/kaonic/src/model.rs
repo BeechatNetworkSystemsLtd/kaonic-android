@@ -1,14 +1,19 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ContactData {
     pub name: String,
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct AnnounceData {
+    pub contact: ContactData,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Contact {
     pub address: String,
-    pub data: ContactData,
+    pub contact: ContactData,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
@@ -24,6 +29,11 @@ pub struct Message {
     pub address: String,
     pub timestamp: i64,
     pub text: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ContactConnect {
+    pub address: String,
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize)]
@@ -79,4 +89,19 @@ pub struct FileChunk {
     pub file_id: String,
     pub chat_id: String,
     pub data: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct KaonicConfig {}
+
+#[derive(Serialize, Deserialize)]
+pub struct ConnectionInfo {
+    pub address: String,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "type", content = "info")]
+pub enum Connection {
+    TcpClient(ConnectionInfo),
+    KaonicClient(ConnectionInfo),
 }

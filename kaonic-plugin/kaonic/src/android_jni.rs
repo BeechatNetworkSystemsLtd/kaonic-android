@@ -18,11 +18,11 @@ use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
 use android_log;
-use log::{self, LevelFilter};
+use log::{self, error, LevelFilter};
 
 use crate::event::Event;
 use crate::messenger::{Messenger, MessengerCommand, Platform};
-use crate::model::FileChunk;
+use crate::model::{ContactData, FileChunk};
 
 #[derive(Clone)]
 struct KaonicJni {
@@ -408,6 +408,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
     _obj: JObject,
     ptr: jlong,
     identity: JString,
+    contact_data: JString,
 ) {
     // Safety: ptr must be a valid pointer created by nativeInit
     let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
@@ -418,14 +419,27 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
     let (cmd_send, cmd_recv) = tokio::sync::mpsc::channel(1);
     lib.cmd_send = cmd_send;
 
-    // Convert JString to Rust String
     let identity_hex: String = match env.get_string(&identity) {
         Ok(jstr) => jstr.into(),
         Err(_) => {
-            eprintln!("Failed to convert JString to Rust String");
             return;
         }
     };
+
+    let contact_data_json: String = match env.get_string(&contact_data) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => {
+            return;
+        }
+    };
+
+    let contact_data = serde_json::from_str::<ContactData>(&contact_data_json);
+    if let Err(err) = contact_data {
+        log::error!("incorrect contact data - {}", err);
+        return;
+    }
+
+    let contact_data = contact_data.unwrap();
 
     // Convert hex string into PrivateIdentity
     match PrivateIdentity::new_from_hex_string(&identity_hex) {
@@ -434,6 +448,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
                 identity,
                 cmd_recv,
                 lib.jni.clone(),
+                contact_data,
                 lib.cancel.clone(),
             ));
         }
@@ -479,9 +494,12 @@ async fn messenger_task(
     identity: PrivateIdentity,
     mut cmd_rx: tokio::sync::mpsc::Receiver<MessengerCommand>,
     jni: Arc<Mutex<KaonicJni>>,
+    contact: ContactData,
     cancel: CancellationToken,
 ) {
-    let messenger = Messenger::new(identity, "messenger", PlatformJni { jni });
+    log::info!("kaonic: start messenger for contact '{}'", contact.name);
+
+    let messenger = Messenger::new(identity, contact, "messenger", PlatformJni { jni });
 
     // Setup all interfaces
     {
@@ -490,7 +508,7 @@ async fn messenger_task(
             .await
             .lock()
             .await
-            .spawn(TcpClient::new("192.168.0.224:4242"), TcpClient::spawn);
+            .spawn(TcpClient::new("192.168.1.134:4242"), TcpClient::spawn);
 
         // messenger.iface_manager().await.lock().await.spawn(
         //     KaonicGrpc::new(
