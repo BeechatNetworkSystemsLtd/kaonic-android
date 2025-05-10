@@ -9,7 +9,9 @@ import kotlinx.coroutines.launch
 import network.beechat.kaonic.models.KaonicEvent
 import network.beechat.kaonic.models.KaonicEventType
 import network.beechat.kaonic.models.messages.MessageEvent
+import network.beechat.kaonic.models.messages.MessageFileEvent
 import network.beechat.kaonic.models.messages.MessageTextEvent
+import network.beechat.kaonic.sampleapp.extensions.isMy
 
 class ChatService(scope: CoroutineScope) {
     /**
@@ -35,6 +37,10 @@ class ChatService(scope: CoroutineScope) {
                             (event.data as MessageTextEvent).chatId,
                             event as KaonicEvent<MessageEvent>
                         )
+                        is MessageFileEvent -> handleTextMessageEvent(
+                            (event.data as MessageFileEvent).chatId,
+                            event as KaonicEvent<MessageEvent>
+                        )
                     }
                 }
         }
@@ -44,15 +50,17 @@ class ChatService(scope: CoroutineScope) {
         val chatId: String
         if (!contactChats.containsKey(address)) {
             chatId = java.util.UUID.randomUUID().toString()
-            contactChats[chatId] = address
+            contactChats[address] = chatId
         } else {
-            chatId = contactChats[address] ?: java.util.UUID.randomUUID().toString()
+            contactChats[address] ?: java.util.UUID.randomUUID().toString()
         }
-        return messages.getOrPut(chatId) { MutableStateFlow(arrayListOf()) }
+        return messages.getOrPut(address) { MutableStateFlow(arrayListOf()) }
     }
 
     private fun handleTextMessageEvent(chatId: String, event: KaonicEvent<MessageEvent>) {
-        checkChatId(chatId, event.data.address)
+        if(!event.isMy()) {
+            checkChatId(chatId, event.data.address)
+        }
 
         val flow = messages.getOrPut(chatId) { MutableStateFlow(arrayListOf()) }
         val oldList = flow.value

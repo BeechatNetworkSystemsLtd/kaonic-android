@@ -61,7 +61,7 @@ object KaonicService : KaonicEventListener {
         CoroutineScope(Dispatchers.Default).launch {
             Log.i(TAG, "onEventReceived ${event.data.javaClass.name}")
             when (event.type) {
-                KaonicEventType.MESSAGE_TEXT -> {
+                KaonicEventType.MESSAGE_TEXT, KaonicEventType.MESSAGE_FILE -> {
                     _events.emit(event)
                 }
 
