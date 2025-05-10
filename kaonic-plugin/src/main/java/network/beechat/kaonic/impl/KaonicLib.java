@@ -46,7 +46,11 @@ public class KaonicLib {
         Log.i(TAG, "KaonicLib initialized");
 
         // TODO: move start from communication service
-        start(loadSecret(), "{\"name\":\"Kaonic\"}");
+        start(loadSecret(), 
+            "{" + 
+                "\"contact\":{\"name\":\"Kaonic\"}," +
+                "\"connections\":[ {\"type\":\"TcpClient\", \"info\": { \"address\": \"192.168.1.134:4242\"}}]" +
+           "}");
     }
 
     public static synchronized KaonicLib getInstance(Context context) throws Exception {
@@ -64,15 +68,21 @@ public class KaonicLib {
         this.eventListener = null;
     }
 
-    public void start(String secret, String contact) {
+    public void start(String secret, String startConfig) {
         if (secret != null) {
-            nativeStart(this.pointer, secret, contact);
+            nativeStart(this.pointer, secret, startConfig);
         }
     }
 
     public void sendMessage(String eventJson) {
         if (eventJson != null) {
             nativeSendMessage(this.pointer, eventJson);
+        }
+    }
+
+    public void createChat(String eventJson) {
+        if (eventJson != null) {
+            nativeCreateChat(this.pointer, eventJson);
         }
     }
 
@@ -98,6 +108,7 @@ public class KaonicLib {
     private native String nativeGenerate(long ptr);
 
     private native void nativeSendMessage(long ptr, String eventJson);
+    private native void nativeCreateChat(long ptr, String eventJson);
     private native void nativeSendFile(long ptr, String eventJson);
     private native void nativeSendAudio(long ptr, byte[] data);
     private native void nativeSendFileChunk(long ptr, String address, String id, byte[] data);

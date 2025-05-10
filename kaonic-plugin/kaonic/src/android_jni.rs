@@ -13,16 +13,17 @@ use reticulum::identity::PrivateIdentity;
 use reticulum::iface::kaonic::kaonic_grpc::KaonicGrpc;
 use reticulum::iface::tcp_client::TcpClient;
 
+use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 
 use android_log;
-use log::{self, error, LevelFilter};
+use log::{self, LevelFilter};
 
 use crate::event::Event;
 use crate::messenger::{Messenger, MessengerCommand, Platform};
-use crate::model::{ContactData, FileChunk};
+use crate::model::{Connection, ContactData, FileChunk};
 
 #[derive(Clone)]
 struct KaonicJni {
@@ -35,6 +36,12 @@ struct KaonicJni {
     request_file_chunk_method: JMethodID,
     receive_file_chunk_method: JMethodID,
     jvm: Arc<JavaVM>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct MessengerStartConfig {
+    contact: ContactData,
+    connections: Vec<Connection>,
 }
 
 struct KaonicLib {
@@ -322,6 +329,35 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendMess
 }
 
 #[no_mangle]
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeCreateChat(
+    mut env: JNIEnv,
+    _obj: JObject,
+    ptr: jlong,
+    chat_event: JString,
+) {
+    let lib = unsafe { &*(ptr as *const KaonicLib) };
+
+    let event_str: String = match env.get_string(&chat_event) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => "{}".into(),
+    };
+
+    let event = serde_json::from_str::<Event>(&event_str);
+    if let Ok(event) = event {
+        match event {
+            Event::ChatCreate(chat) => {
+                let _ = lib
+                    .cmd_send
+                    .blocking_send(MessengerCommand::ChatCreate(chat));
+            }
+            _ => {}
+        }
+    } else if let Err(err) = event {
+        log::error!("can't parse event {} '{}'", err, event_str);
+    }
+}
+
+#[no_mangle]
 pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendFile(
     mut env: JNIEnv,
     _obj: JObject,
@@ -408,7 +444,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
     _obj: JObject,
     ptr: jlong,
     identity: JString,
-    contact_data: JString,
+    start_config_json: JString,
 ) {
     // Safety: ptr must be a valid pointer created by nativeInit
     let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
@@ -426,20 +462,20 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
         }
     };
 
-    let contact_data_json: String = match env.get_string(&contact_data) {
+    let start_config_json: String = match env.get_string(&start_config_json) {
         Ok(jstr) => jstr.into(),
         Err(_) => {
             return;
         }
     };
 
-    let contact_data = serde_json::from_str::<ContactData>(&contact_data_json);
-    if let Err(err) = contact_data {
-        log::error!("incorrect contact data - {}", err);
+    let start_config = serde_json::from_str::<MessengerStartConfig>(&start_config_json);
+    if let Err(err) = start_config {
+        log::error!("incorrect start config - {}", err);
         return;
     }
 
-    let contact_data = contact_data.unwrap();
+    let start_config = start_config.unwrap();
 
     // Convert hex string into PrivateIdentity
     match PrivateIdentity::new_from_hex_string(&identity_hex) {
@@ -448,7 +484,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
                 identity,
                 cmd_recv,
                 lib.jni.clone(),
-                contact_data,
+                start_config,
                 lib.cancel.clone(),
             ));
         }
@@ -494,30 +530,38 @@ async fn messenger_task(
     identity: PrivateIdentity,
     mut cmd_rx: tokio::sync::mpsc::Receiver<MessengerCommand>,
     jni: Arc<Mutex<KaonicJni>>,
-    contact: ContactData,
+    config: MessengerStartConfig,
     cancel: CancellationToken,
 ) {
-    log::info!("kaonic: start messenger for contact '{}'", contact.name);
+    log::info!(
+        "kaonic: start messenger for contact '{}'",
+        config.contact.name
+    );
 
-    let messenger = Messenger::new(identity, contact, "messenger", PlatformJni { jni });
+    let messenger = Messenger::new(identity, config.contact, "messenger", PlatformJni { jni });
 
     // Setup all interfaces
-    {
-        messenger
-            .iface_manager()
-            .await
-            .lock()
-            .await
-            .spawn(TcpClient::new("192.168.1.134:4242"), TcpClient::spawn);
-
-        // messenger.iface_manager().await.lock().await.spawn(
-        //     KaonicGrpc::new(
-        //         format!("http://{}", "192.168.10.1:8080"),
-        //         reticulum::iface::kaonic::RadioModule::RadioA,
-        //         None,
-        //     ),
-        //     KaonicGrpc::spawn,
-        // );
+    for connection in &config.connections {
+        match connection {
+            Connection::TcpClient(info) => {
+                messenger
+                    .iface_manager()
+                    .await
+                    .lock()
+                    .await
+                    .spawn(TcpClient::new(info.address.clone()), TcpClient::spawn);
+            }
+            Connection::KaonicClient(info) => {
+                messenger.iface_manager().await.lock().await.spawn(
+                    KaonicGrpc::new(
+                        info.address.clone(),
+                        reticulum::iface::kaonic::RadioModule::RadioA,
+                        None,
+                    ),
+                    KaonicGrpc::spawn,
+                );
+            }
+        }
     }
 
     loop {

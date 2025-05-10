@@ -42,6 +42,7 @@ pub enum AcknowledgeKind {
     FileStart,
     FileChunk,
     Message,
+    Chat,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -89,6 +90,13 @@ pub struct FileChunk {
     pub file_id: String,
     pub chat_id: String,
     pub data: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ChatCreate {
+    pub address: String,
+    pub chat_id: String,
+    pub chat_name: String,
 }
 
 #[derive(Serialize, Deserialize)]

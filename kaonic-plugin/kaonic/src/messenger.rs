@@ -25,8 +25,8 @@ use crate::{
     cache::CacheSet,
     event::Event,
     model::{
-        Acknowledge, AnnounceData, CallAudioData, Contact, ContactConnect, ContactData, FileChunk,
-        FileStart, Message, MessengerError,
+        Acknowledge, AnnounceData, CallAudioData, ChatCreate, Contact, ContactConnect, ContactData,
+        FileChunk, FileStart, Message, MessengerError,
     },
 };
 
@@ -48,6 +48,7 @@ pub enum MessengerCommand {
     CallAudioData(CallAudioData),
     SendFileStart(FileStart),
     SendFileChunk(FileChunk),
+    ChatCreate(ChatCreate),
 }
 
 pub struct Messenger<T: Platform> {
@@ -346,6 +347,13 @@ async fn handle_commands<T: Platform + Send + 'static>(
 
                         let _ = send_ack_event(&message.id.clone(), Event::Message(message), &contact_address, handler.clone()).await;
                     },
+                    MessengerCommand::ChatCreate(chat) => {
+
+                        let address = AddressHash::new_from_hex_string(&chat.address).unwrap();
+                        log::debug!("messenger: create chat with {}", address);
+
+                        let _ = send_ack_event(&chat.chat_id.clone(), Event::ChatCreate(chat), &contact_address, handler.clone()).await;
+                    },
                 }
             },
         }
@@ -388,7 +396,7 @@ async fn handle_ack_event<T: Platform + Send + 'static>(
     from_address: &AddressHash,
     mut event: Event,
 ) {
-    log::debug!("messenger: receive event from {}", from_address);
+    log::trace!("messenger: receive event from {}", from_address);
 
     let id = event.to_id();
     let ack_kind = event.to_ack_kind();
@@ -396,7 +404,7 @@ async fn handle_ack_event<T: Platform + Send + 'static>(
     if handler.known_ids.insert(&id) {
         event.change_address(from_address);
         match event {
-            Event::Message(_) | Event::FileStart(_) => {
+            Event::ChatCreate(_) | Event::Message(_) | Event::FileStart(_) => {
                 handler.platform.lock().await.send_event(&event);
             }
             Event::FileChunk(chunk) => {
@@ -443,7 +451,7 @@ async fn handle_out_data<T: Platform + Send + 'static>(
                                     // let platform = handler.lock().await.platform.clone();
                                     // platform.lock().await.feed_audio(audio_data);
                                 },
-                                Event::Message(_) | Event::FileStart(_) | Event::FileChunk(_)  => {
+                                Event::ChatCreate(_) | Event::Message(_) | Event::FileStart(_) | Event::FileChunk(_)  => {
                                     let mut handler = handler.lock().await;
                                     handle_ack_event(&mut handler, &link_event.address_hash, event).await;
                                 },

@@ -105,7 +105,7 @@ public class FileManager {
 
         byte[] chunk = new byte[chunkSize];
 
-        inputStream.read(chunk, processedBytes, chunkSize);
+        inputStream.read(chunk, 0, chunkSize);
         processedBytes += chunkSize;
 
         return chunk;

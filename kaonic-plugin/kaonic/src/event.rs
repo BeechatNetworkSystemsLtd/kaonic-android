@@ -2,8 +2,8 @@ use reticulum::hash::AddressHash;
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
-    Acknowledge, AcknowledgeKind, CallAudioData, Contact, ContactConnect, FileChunk, FileStart,
-    Message,
+    Acknowledge, AcknowledgeKind, CallAudioData, ChatCreate, Contact, ContactConnect, FileChunk,
+    FileStart, Message,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -16,6 +16,7 @@ pub enum Event {
     FileStart(FileStart),
     FileChunk(FileChunk),
     ContactConnect(ContactConnect),
+    ChatCreate(ChatCreate),
 }
 
 impl Event {
@@ -28,12 +29,14 @@ impl Event {
             Event::FileStart(file_start) => file_start.id.clone(),
             Event::FileChunk(file_chunk) => file_chunk.id.clone(),
             Event::ContactConnect(connect) => connect.address.clone(),
+            Event::ChatCreate(chat) => chat.chat_id.clone(),
         }
     }
 
     pub fn to_ack_kind(&self) -> AcknowledgeKind {
         match self {
             Event::Message(_) => AcknowledgeKind::Message,
+            Event::ChatCreate(_) => AcknowledgeKind::Chat,
             Event::FileStart(_) => AcknowledgeKind::FileStart,
             Event::FileChunk(_) => AcknowledgeKind::FileChunk,
             Event::ContactFound(_) => AcknowledgeKind::Generic,
@@ -63,6 +66,9 @@ impl Event {
             }
             Event::ContactConnect(connect) => {
                 connect.address = address;
+            }
+            Event::ChatCreate(chat) => {
+                chat.address = address;
             }
             Event::Acknowledge(_) => {}
         }
