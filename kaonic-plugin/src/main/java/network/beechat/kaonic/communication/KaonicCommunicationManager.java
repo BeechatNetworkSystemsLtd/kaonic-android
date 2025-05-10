@@ -66,8 +66,12 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
     }
 
     public void createChat(String address, String chatId) {
-        transmitData(new KaonicEvent(KaonicEventType.CHAT_CREATE,
-                new ChatCreateEvent(address, chatId)));
+        try {
+            kaonicLib.createChat(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.CHAT_CREATE,
+                    new ChatCreateEvent(address, chatId))));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public void sendMessage(String address, String message, String chatId) {

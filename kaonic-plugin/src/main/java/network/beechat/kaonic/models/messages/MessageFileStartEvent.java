@@ -16,6 +16,13 @@ public class MessageFileStartEvent extends MessageEvent {
     @JsonProperty("file_size")
     public final int fileSize;
 
+    public MessageFileStartEvent() {
+        super("", 0, "", "");
+        this.fileId = id;
+        this.fileName = "";
+        this.fileSize = 0;
+    }
+
     public MessageFileStartEvent(@NonNull String address, long timestamp,
                                  String id, String chatUuid, String fileName,
                                  int fileSize) {

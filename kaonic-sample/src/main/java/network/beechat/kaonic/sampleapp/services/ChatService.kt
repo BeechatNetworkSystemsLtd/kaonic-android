@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import network.beechat.kaonic.models.KaonicEvent
 import network.beechat.kaonic.models.KaonicEventType
+import network.beechat.kaonic.models.messages.ChatCreateEvent
 import network.beechat.kaonic.models.messages.MessageEvent
 import network.beechat.kaonic.models.messages.MessageFileEvent
 import network.beechat.kaonic.models.messages.MessageTextEvent
@@ -41,6 +42,12 @@ class ChatService(scope: CoroutineScope) {
                             (event.data as MessageFileEvent).chatId,
                             event as KaonicEvent<MessageEvent>
                         )
+
+                        is ChatCreateEvent ->
+                            putChatIdIfNotExist(
+                                (event.data as ChatCreateEvent).chatId,
+                                (event.data as ChatCreateEvent).address
+                            )
                     }
                 }
         }
@@ -61,8 +68,6 @@ class ChatService(scope: CoroutineScope) {
     }
 
     private fun handleTextMessageEvent(chatId: String, event: KaonicEvent<MessageEvent>) {
-        putChatIdIfNotExist(chatId, event.data.address)
-
         val flow = messages.getOrPut(chatId) { MutableStateFlow(arrayListOf()) }
         val oldList = flow.value
         val existingMessages = oldList.filter {

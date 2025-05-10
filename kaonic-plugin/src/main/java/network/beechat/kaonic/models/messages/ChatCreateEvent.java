@@ -6,9 +6,9 @@ import network.beechat.kaonic.models.KaonicEventData;
 
 public class ChatCreateEvent extends KaonicEventData {
     @JsonProperty("chat_id")
-    final String chatId;
+    public final String chatId;
     @JsonProperty("chat_name")
-    final String chatName;
+    public final String chatName;
 
     public ChatCreateEvent() {
         super("", System.currentTimeMillis());
