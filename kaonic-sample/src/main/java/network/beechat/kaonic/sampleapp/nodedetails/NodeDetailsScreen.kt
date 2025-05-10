@@ -1,7 +1,10 @@
 package network.beechat.kaonic.sampleapp.nodedetails
 
+import android.app.DownloadManager
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -44,11 +47,14 @@ import network.beechat.kaonic.models.messages.MessageTextEvent
 import network.beechat.kaonic.sampleapp.extensions.isMy
 import network.beechat.kaonic.sampleapp.extensions.timeFormatted
 import java.io.File
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NodeDetailsScreen(viewModel: NodeDetailsViewModel,
-                      onBack: () -> Unit) {
+fun NodeDetailsScreen(
+    viewModel: NodeDetailsViewModel,
+    onBack: () -> Unit
+) {
     val messages by viewModel.getMessages(viewModel.nodeAddress)
         .collectAsState(initial = emptyList())
 
@@ -140,22 +146,15 @@ fun MessageItem(message: KaonicEvent<MessageEvent>) {
                 is MessageFileEvent -> {
                     Column(
                         modifier = Modifier.clickable {
-                            val file = File(data.path ?: return@clickable)
-                            val uri: Uri = FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider", // You must declare this in AndroidManifest
-                                file
-                            )
-
-                            val intent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(
-                                    uri,
-                                    "*/*"
-                                ) // you can specify type like "application/pdf"
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-
-                            context.startActivity(intent)
+                            /// You’re using a generic MIME type, and no app is registered to handle it.
+//                            val intent = Intent(Intent.ACTION_VIEW).apply {
+//                                setDataAndType(
+//                                    data.path.toUri(),
+//                                    "application/octet-stream"
+//                                )
+//                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+//                            }
+                            context.startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS))
                         }
                     ) {
                         Text(

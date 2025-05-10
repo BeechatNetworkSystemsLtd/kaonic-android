@@ -8,6 +8,7 @@ import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
+import android.webkit.MimeTypeMap;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -79,16 +80,19 @@ public class FileManager {
         this.chatId = chatId;
         this.fileId = fileId;
         this.address = address;
-        Uri uri=Uri.parse(fileUriString);
+        Uri uri = Uri.parse(fileUriString);
         fileUri = uri;
         close();
 
-        fileName = uri.getLastPathSegment();
         Cursor cursor = resolver.query(uri, null, null, null, null);
         if (cursor != null) {
             int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
-            if (cursor.moveToFirst() && sizeIndex != -1) {
+            int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+            if (cursor.moveToFirst() && sizeIndex != -1 && nameIndex != -1) {
                 fileSize = (int) cursor.getLong(sizeIndex);
+                fileName = cursor.getString(nameIndex);
+            } else {
+                return false;
             }
         }
 
