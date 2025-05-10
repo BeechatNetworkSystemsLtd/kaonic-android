@@ -15,8 +15,7 @@ import network.beechat.kaonic.sampleapp.extensions.isMy
 
 class ChatService(scope: CoroutineScope) {
     /**
-     * key is address of the chat,
-     * meaning it's chatUUID
+     * key is address of chat id
      */
     private val messages =
         mutableStateMapOf<String, MutableStateFlow<ArrayList<KaonicEvent<MessageEvent>>>>()
@@ -37,6 +36,7 @@ class ChatService(scope: CoroutineScope) {
                             (event.data as MessageTextEvent).chatId,
                             event as KaonicEvent<MessageEvent>
                         )
+
                         is MessageFileEvent -> handleTextMessageEvent(
                             (event.data as MessageFileEvent).chatId,
                             event as KaonicEvent<MessageEvent>
@@ -46,21 +46,22 @@ class ChatService(scope: CoroutineScope) {
         }
     }
 
-    fun getChatMessages(address: String): StateFlow<ArrayList<KaonicEvent<MessageEvent>>> {
-        val chatId: String
+    fun createChatWithAddress(address: String): String {
         if (!contactChats.containsKey(address)) {
-            chatId = java.util.UUID.randomUUID().toString()
+            val chatId = java.util.UUID.randomUUID().toString()
             contactChats[address] = chatId
-        } else {
-            contactChats[address] ?: java.util.UUID.randomUUID().toString()
+            KaonicService.createChat(address, chatId)
         }
-        return messages.getOrPut(address) { MutableStateFlow(arrayListOf()) }
+
+        return contactChats[address]!!
+    }
+
+    fun getChatMessages(chatId: String): StateFlow<ArrayList<KaonicEvent<MessageEvent>>> {
+        return messages.getOrPut(chatId) { MutableStateFlow(arrayListOf()) }
     }
 
     private fun handleTextMessageEvent(chatId: String, event: KaonicEvent<MessageEvent>) {
-        if(!event.isMy()) {
-            checkChatId(chatId, event.data.address)
-        }
+        putChatIdIfNotExist(chatId, event.data.address)
 
         val flow = messages.getOrPut(chatId) { MutableStateFlow(arrayListOf()) }
         val oldList = flow.value
@@ -82,15 +83,15 @@ class ChatService(scope: CoroutineScope) {
     }
 
     fun sendTextMessage(message: String, address: String) {
-        KaonicService.sendTextMessage(message, address, contactChats[address] ?: "")
+        KaonicService.sendTextMessage(message, address, contactChats[address]!!)
     }
 
     fun sendFileMessage(filePath: String, address: String) {
-        KaonicService.sendFileMessage(filePath, address, contactChats[address] ?: "")
+        KaonicService.sendFileMessage(filePath, address, contactChats[address]!!)
 
     }
 
-    private fun checkChatId(chatId: String, address: String) {
+    private fun putChatIdIfNotExist(chatId: String, address: String) {
         if (!contactChats.containsKey(address)) {
             contactChats[address] = chatId
         }

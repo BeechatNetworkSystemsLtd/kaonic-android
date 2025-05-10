@@ -27,6 +27,7 @@ import network.beechat.kaonic.models.calls.CallAnswerEvent;
 import network.beechat.kaonic.models.calls.CallNewEvent;
 import network.beechat.kaonic.models.calls.CallRejectEvent;
 import network.beechat.kaonic.models.calls.CallVoiceEvent;
+import network.beechat.kaonic.models.messages.ChatCreateEvent;
 import network.beechat.kaonic.models.messages.MessageFileEvent;
 import network.beechat.kaonic.models.messages.MessageFileStartEvent;
 import network.beechat.kaonic.models.messages.MessageLocationEvent;
@@ -62,6 +63,11 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
 
     public String getMyAddress() {
         return myAddress;
+    }
+
+    public void createChat(String address, String chatId) {
+        transmitData(new KaonicEvent(KaonicEventType.CHAT_CREATE,
+                new ChatCreateEvent(address, chatId)));
     }
 
     public void sendMessage(String address, String message, String chatId) {
@@ -140,6 +146,9 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
             switch (eventType) {
                 case KaonicEventType.CONTACT_FOUND:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), ContactFoundEvent.class);
+                    break;
+                case KaonicEventType.CHAT_CREATE:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), ChatCreateEvent.class);
                     break;
                 case KaonicEventType.MESSAGE_TEXT:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), MessageTextEvent.class);

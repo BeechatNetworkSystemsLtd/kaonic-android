@@ -49,6 +49,10 @@ object KaonicService : KaonicEventListener {
         }
     }
 
+    fun createChat(address: String, chatId: String) {
+        kaonicCommunicationHandler.createChat(address, chatId)
+    }
+
     fun sendTextMessage(message: String, address: String, chatId: String) {
         kaonicCommunicationHandler.sendMessage(address, message, chatId)
     }
@@ -61,7 +65,8 @@ object KaonicService : KaonicEventListener {
         CoroutineScope(Dispatchers.Default).launch {
             Log.i(TAG, "onEventReceived ${event.data.javaClass.name}")
             when (event.type) {
-                KaonicEventType.MESSAGE_TEXT, KaonicEventType.MESSAGE_FILE -> {
+                KaonicEventType.MESSAGE_TEXT, KaonicEventType.MESSAGE_FILE,
+                     KaonicEventType.CHAT_CREATE-> {
                     _events.emit(event)
                 }
 
