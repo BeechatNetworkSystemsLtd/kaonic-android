@@ -10,7 +10,7 @@ import androidx.annotation.NonNull;
 import java.util.Objects;
 
 import network.beechat.kaonic.audio.AudioService;
-import network.beechat.kaonic.storage.SecureStorageHelper;
+
 
 public class KaonicLib {
     final private String TAG = "KaonicLib";
@@ -31,7 +31,6 @@ public class KaonicLib {
 
     private static KaonicLib instance;
     private final AudioService audioService = new AudioService();
-    private final SecureStorageHelper secureStorageHelper;
 
     private final long pointer;
     private EventListener eventListener;
@@ -39,18 +38,9 @@ public class KaonicLib {
     private KaonicLib(Context context) throws Exception {
 
         pointer = this.nativeInit(context);
-
-        secureStorageHelper = new SecureStorageHelper(context);
         audioService.setAudioStreamCallback(this::onAudioResult);
 
         Log.i(TAG, "KaonicLib initialized");
-
-        // TODO: move start from communication service
-        start(loadSecret(), 
-            "{" + 
-                "\"contact\":{\"name\":\"Kaonic\"}," +
-                "\"connections\":[ {\"type\":\"TcpClient\", \"info\": { \"address\": \"192.168.0.224:4242\"}}]" +
-           "}");
     }
 
     public static synchronized KaonicLib getInstance(Context context) throws Exception {
@@ -92,7 +82,7 @@ public class KaonicLib {
         }
     }
 
-    public String generate() {
+    public String generateSecret() {
         String json = nativeGenerate(this.pointer);
         // TODO: Parse JSON
         return json;
@@ -162,20 +152,5 @@ public class KaonicLib {
         nativeSendAudio(this.pointer, buffer);
     }
 
-    // TODO: Remove secret management from this class
-    private String loadSecret() {
-        String secret = null;
-        try {
-            String SECRET_TAG = "KAONIC_SECRET";
-            secret = secureStorageHelper.get(SECRET_TAG);
-            if (secret == null) {
-                secret = generate();
-                secureStorageHelper.put(SECRET_TAG, secret);
-            }
 
-        } catch (Exception e) {
-            Log.e(TAG, Objects.requireNonNull(e.getMessage()));
-        }
-        return secret;
-    }
 }

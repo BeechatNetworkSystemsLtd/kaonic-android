@@ -1,4 +1,4 @@
-package network.beechat.kaonic.storage;
+package network.beechat.kaonic.sampleapp.services;
 
 import android.content.Context;
 import android.content.SharedPreferences;

@@ -27,6 +27,7 @@ import network.beechat.kaonic.models.calls.CallAnswerEvent;
 import network.beechat.kaonic.models.calls.CallNewEvent;
 import network.beechat.kaonic.models.calls.CallRejectEvent;
 import network.beechat.kaonic.models.calls.CallVoiceEvent;
+import network.beechat.kaonic.models.connection.ConnectionConfig;
 import network.beechat.kaonic.models.messages.ChatCreateEvent;
 import network.beechat.kaonic.models.messages.MessageFileEvent;
 import network.beechat.kaonic.models.messages.MessageFileStartEvent;
@@ -47,6 +48,23 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         this.kaonicLib = kaonicLib;
         this.contentResolver = resolver;
         kaonicLib.setEventListener(this);
+    }
+
+    public boolean start(String secret, ConnectionConfig connectionConfig) {
+        try {
+            String json = objectMapper.writeValueAsString(connectionConfig);
+            kaonicLib.start(
+                    secret, json
+            );
+        } catch (JsonProcessingException e) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public String generateSecret() {
+        return kaonicLib.generateSecret();
     }
 
     public void onDestroy() {

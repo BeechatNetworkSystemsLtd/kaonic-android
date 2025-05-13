@@ -12,7 +12,6 @@ import network.beechat.kaonic.models.messages.ChatCreateEvent
 import network.beechat.kaonic.models.messages.MessageEvent
 import network.beechat.kaonic.models.messages.MessageFileEvent
 import network.beechat.kaonic.models.messages.MessageTextEvent
-import network.beechat.kaonic.sampleapp.extensions.isMy
 
 class ChatService(scope: CoroutineScope) {
     /**
@@ -44,7 +43,7 @@ class ChatService(scope: CoroutineScope) {
                         )
 
                         is ChatCreateEvent ->
-                            putChatIdIfNotExist(
+                            putOrUpdateChatId(
                                 (event.data as ChatCreateEvent).chatId,
                                 (event.data as ChatCreateEvent).address
                             )
@@ -97,9 +96,7 @@ class ChatService(scope: CoroutineScope) {
 
     }
 
-    private fun putChatIdIfNotExist(chatId: String, address: String) {
-        if (!contactChats.containsKey(address)) {
-            contactChats[address] = chatId
-        }
+    private fun putOrUpdateChatId(chatId: String, address: String) {
+        contactChats[address] = chatId
     }
 }

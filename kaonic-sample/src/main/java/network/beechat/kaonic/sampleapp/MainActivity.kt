@@ -10,6 +10,7 @@ import androidx.core.content.ContextCompat
 import network.beechat.kaonic.communication.KaonicCommunicationManager
 import network.beechat.kaonic.impl.KaonicLib
 import network.beechat.kaonic.sampleapp.services.KaonicService
+import network.beechat.kaonic.sampleapp.services.SecureStorageHelper
 import network.beechat.kaonic.sampleapp.theme.SampleAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -79,7 +80,8 @@ class MainActivity : ComponentActivity() {
             KaonicCommunicationManager(
                 KaonicLib.getInstance(applicationContext),
                 contentResolver
-            )
+            ),
+            SecureStorageHelper(applicationContext)
         )
     }
 }

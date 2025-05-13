@@ -9,15 +9,22 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import network.beechat.kaonic.communication.KaonicEventListener
 import network.beechat.kaonic.communication.KaonicCommunicationManager
+import network.beechat.kaonic.communication.KaonicEventListener
 import network.beechat.kaonic.models.KaonicEvent
 import network.beechat.kaonic.models.KaonicEventData
 import network.beechat.kaonic.models.KaonicEventType
+import network.beechat.kaonic.models.connection.Connection
+import network.beechat.kaonic.models.connection.ConnectionConfig
+import network.beechat.kaonic.models.connection.ConnectionContact
+import network.beechat.kaonic.models.connection.ConnectionInfo
+import network.beechat.kaonic.models.connection.ConnectionType
+import java.util.Objects
 
 object KaonicService : KaonicEventListener {
     private val TAG = "KaonicService"
     private lateinit var kaonicCommunicationHandler: KaonicCommunicationManager
+    private lateinit var secureStorageHelper: SecureStorageHelper
 
     /// list of nodes
     private val _contacts = mutableStateListOf<String>()
@@ -31,22 +38,27 @@ object KaonicService : KaonicEventListener {
     val myAddress: String
         get() = _myAddress
 
-    fun init(kaonicCommunicationHandler: KaonicCommunicationManager) {
+    fun init(
+        kaonicCommunicationHandler: KaonicCommunicationManager,
+        secureStorageHelper: SecureStorageHelper
+    ) {
         this.kaonicCommunicationHandler = kaonicCommunicationHandler
+        this.secureStorageHelper = secureStorageHelper
         kaonicCommunicationHandler.setEventListener(this)
-        _myAddress = kaonicCommunicationHandler.myAddress;
-        print("")
-    }
+        _myAddress = kaonicCommunicationHandler.myAddress
 
-    suspend fun emitNodeFound() {
-        flow {
-            repeat(4) { index ->
-                emit("Item $index")
-                delay(500)
-            }
-        }.collect { generatedString ->
-            contacts.add(generatedString)
-        }
+        kaonicCommunicationHandler.start(
+            loadSecret(),
+            ConnectionConfig(
+                ConnectionContact("Kaonic"), arrayListOf(
+                    Connection(
+                        ConnectionType
+                            .TcpClient, ConnectionInfo("192.168.0.224:4242")
+                    )
+                )
+            )
+        )
+        print("")
     }
 
     fun createChat(address: String, chatId: String) {
@@ -66,7 +78,7 @@ object KaonicService : KaonicEventListener {
             // Log.i(TAG, "onEventReceived ${event.data.javaClass.name}")
             when (event.type) {
                 KaonicEventType.MESSAGE_TEXT, KaonicEventType.MESSAGE_FILE,
-                     KaonicEventType.CHAT_CREATE-> {
+                KaonicEventType.CHAT_CREATE -> {
                     _events.emit(event)
                 }
 
@@ -76,5 +88,20 @@ object KaonicService : KaonicEventListener {
                 }
             }
         }
+    }
+
+    private fun loadSecret(): String? {
+        var secret: String? = null
+        try {
+            val SECRET_TAG = "KAONIC_SECRET"
+            secret = secureStorageHelper.get(SECRET_TAG)
+            if (secret == null) {
+                secret = kaonicCommunicationHandler.generateSecret()
+                secureStorageHelper.put(SECRET_TAG, secret)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, e.message ?: "")
+        }
+        return secret
     }
 }

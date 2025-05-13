@@ -24,9 +24,10 @@ class NodeDetailsViewModel(
 ) : ViewModel() {
     private val _messages = mutableStateOf<List<KaonicEvent<MessageEvent>>>(emptyList())
     val messages: List<KaonicEvent<MessageEvent>> get() = _messages.value
-    val chatId: String = chatService.createChatWithAddress(nodeAddress)
+    var chatId: String = chatService.createChatWithAddress(nodeAddress)
 
     fun getMessages(address: String): StateFlow<List<KaonicEvent<MessageEvent>>> {
+        chatId = chatService.createChatWithAddress(nodeAddress)
         return chatService.getChatMessages(chatId)
     }
 
