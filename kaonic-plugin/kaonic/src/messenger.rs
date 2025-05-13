@@ -422,7 +422,7 @@ async fn handle_ack_event<T: Platform + Send + 'static>(
 
     let ack = Acknowledge::new(id, ack_kind);
 
-    handler.ack_manager.handle_ack(ack.id.clone()).await;
+    handler.ack_manager.handle_ack(&ack.id).await;
 
     handler.send_ack(from_address, ack).await;
 }
@@ -464,6 +464,13 @@ async fn handle_out_data<T: Platform + Send + 'static>(
                         }
                     },
                     LinkEvent::Activated => {
+                        let handler = handler.lock().await;
+                        handler.send_out(
+                            &link_event.address_hash,
+                            &Event::ContactConnect(ContactConnect {
+                                address: contact_address.to_hex_string(),
+                            }))
+                        .await;
                     },
                     LinkEvent::Closed => {
                     },
@@ -492,7 +499,7 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                         if let Ok(event) = event {
                             match event {
                                 Event::Acknowledge(ack) => {
-                                    handler.lock().await.ack_manager.handle_ack(ack.id).await;
+                                    handler.lock().await.ack_manager.handle_ack(&ack.id).await;
                                 },
                                 Event::ContactConnect(connect) => {
                                     if let Ok(address) = AddressHash::new_from_hex_string(&connect.address) {
@@ -505,7 +512,9 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                             log::error!("messenger: invalid in event {}", err);
                         }
                     },
-                    LinkEvent::Activated => { },
+                    LinkEvent::Activated => {
+
+                    },
                     LinkEvent::Closed => {
                         handler.lock().await.in_link_map.lock().await.remove(&link_event.id);
                     },

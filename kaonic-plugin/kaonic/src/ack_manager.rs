@@ -23,10 +23,10 @@ impl<T: std::hash::Hash + Eq + Clone> AckManager<T> {
         return rx;
     }
 
-    pub async fn handle_ack(&self, id: T) {
+    pub async fn handle_ack(&self, id: &T) {
         let maybe_sender = {
             let mut pending = self.pending.lock().await;
-            pending.remove(&id)
+            pending.remove(id)
         };
 
         if let Some(sender) = maybe_sender {
