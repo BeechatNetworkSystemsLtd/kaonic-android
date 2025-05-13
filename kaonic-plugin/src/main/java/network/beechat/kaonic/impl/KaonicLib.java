@@ -76,19 +76,19 @@ public class KaonicLib {
 
     public void sendMessage(String eventJson) {
         if (eventJson != null) {
-            nativeSendMessage(this.pointer, eventJson);
+            nativeSendEvent(this.pointer, eventJson);
         }
     }
 
     public void createChat(String eventJson) {
         if (eventJson != null) {
-            nativeCreateChat(this.pointer, eventJson);
+            nativeSendEvent(this.pointer, eventJson);
         }
     }
 
     public void sendFile(String eventJson) {
         if (eventJson != null) {
-            nativeSendFile(this.pointer, eventJson);
+            nativeSendEvent(this.pointer, eventJson);
         }
     }
 
@@ -107,9 +107,7 @@ public class KaonicLib {
 
     private native String nativeGenerate(long ptr);
 
-    private native void nativeSendMessage(long ptr, String eventJson);
-    private native void nativeCreateChat(long ptr, String eventJson);
-    private native void nativeSendFile(long ptr, String eventJson);
+    private native void nativeSendEvent(long ptr, String eventJson);
     private native void nativeSendAudio(long ptr, byte[] data);
     private native void nativeSendFileChunk(long ptr, String address, String id, byte[] data);
 
@@ -142,6 +140,8 @@ public class KaonicLib {
 
     private void requestFileChunk(String address, String fileId, int chunkSize) {
         if (eventListener != null) {
+            // NOTE: onFileChunkRequest should be invoked from different thread
+            // TODO: Optimize thread usage
             new Handler(Looper.getMainLooper()).post(() -> {
                 eventListener.onFileChunkRequest(fileId, chunkSize);
             });
@@ -150,6 +150,8 @@ public class KaonicLib {
 
     private void receiveFileChunk(String address, String fileId, byte[] data) {
         if (eventListener != null) {
+            // NOTE: onFileChunkReceived should be invoked from different thread
+            // TODO: Optimize thread usage
             new Handler(Looper.getMainLooper()).post(() -> {
                 eventListener.onFileChunkReceived(fileId, data);
             });
@@ -157,7 +159,6 @@ public class KaonicLib {
     }
 
     private void onAudioResult(int size, byte[] buffer) {
-        Log.i(TAG, "onAudioResult");
         nativeSendAudio(this.pointer, buffer);
     }
 

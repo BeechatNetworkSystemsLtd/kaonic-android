@@ -23,18 +23,20 @@ use log::{self, LevelFilter};
 
 use crate::event::Event;
 use crate::messenger::{Messenger, MessengerCommand, Platform};
-use crate::model::{Connection, ContactData, FileChunk};
+use crate::model::{Connection, ContactData, FileChunk, MessengerError};
 
 #[derive(Clone)]
 struct KaonicJni {
     _context: GlobalRef,
     obj: GlobalRef,
+
     receive_method: JMethodID,
     start_audio_method: JMethodID,
     stop_audio_method: JMethodID,
     feed_audio_method: JMethodID,
     request_file_chunk_method: JMethodID,
     receive_file_chunk_method: JMethodID,
+
     jvm: Arc<JavaVM>,
 }
 
@@ -300,51 +302,26 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendMessage(
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendEvent(
     mut env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
-    message_event: JString,
+    event: JString,
 ) {
-    let lib = unsafe { &*(ptr as *const KaonicLib) };
-
-    let event_str: String = match env.get_string(&message_event) {
-        Ok(jstr) => jstr.into(),
-        Err(_) => "{}".into(),
-    };
-
-    let event = serde_json::from_str::<Event>(&event_str);
+    let event = parse_json_param::<Event>(&mut env, &event);
     if let Ok(event) = event {
+        let lib = unsafe { &*(ptr as *const KaonicLib) };
         match event {
             Event::Message(message) => {
                 let _ = lib
                     .cmd_send
                     .blocking_send(MessengerCommand::SendMessage(message));
             }
-            _ => {}
-        }
-    } else if let Err(err) = event {
-        log::error!("can't parse event {} '{}'", err, event_str);
-    }
-}
-
-#[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeCreateChat(
-    mut env: JNIEnv,
-    _obj: JObject,
-    ptr: jlong,
-    chat_event: JString,
-) {
-    let lib = unsafe { &*(ptr as *const KaonicLib) };
-
-    let event_str: String = match env.get_string(&chat_event) {
-        Ok(jstr) => jstr.into(),
-        Err(_) => "{}".into(),
-    };
-
-    let event = serde_json::from_str::<Event>(&event_str);
-    if let Ok(event) = event {
-        match event {
+            Event::FileStart(file_start) => {
+                let _ = lib
+                    .cmd_send
+                    .blocking_send(MessengerCommand::SendFileStart(file_start));
+            }
             Event::ChatCreate(chat) => {
                 let _ = lib
                     .cmd_send
@@ -352,37 +329,6 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeCreateCh
             }
             _ => {}
         }
-    } else if let Err(err) = event {
-        log::error!("can't parse event {} '{}'", err, event_str);
-    }
-}
-
-#[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendFile(
-    mut env: JNIEnv,
-    _obj: JObject,
-    ptr: jlong,
-    file_event: JString,
-) {
-    let lib = unsafe { &*(ptr as *const KaonicLib) };
-
-    let event_str: String = match env.get_string(&file_event) {
-        Ok(jstr) => jstr.into(),
-        Err(_) => "{}".into(),
-    };
-
-    let event = serde_json::from_str::<Event>(&event_str);
-    if let Ok(event) = event {
-        match event {
-            Event::FileStart(file_start) => {
-                let _ = lib
-                    .cmd_send
-                    .blocking_send(MessengerCommand::SendFileStart(file_start));
-            }
-            _ => {}
-        }
-    } else if let Err(err) = event {
-        log::error!("can't parse event {} '{}'", err, event_str);
     }
 }
 
@@ -458,24 +404,13 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
     let identity_hex: String = match env.get_string(&identity) {
         Ok(jstr) => jstr.into(),
         Err(_) => {
+            log::error!("invalid secret for identity");
             return;
         }
     };
 
-    let start_config_json: String = match env.get_string(&start_config_json) {
-        Ok(jstr) => jstr.into(),
-        Err(_) => {
-            return;
-        }
-    };
-
-    let start_config = serde_json::from_str::<MessengerStartConfig>(&start_config_json);
-    if let Err(err) = start_config {
-        log::error!("incorrect start config - {}", err);
-        return;
-    }
-
-    let start_config = start_config.unwrap();
+    let start_config = parse_json_param::<MessengerStartConfig>(&mut env, &start_config_json)
+        .expect("valid start config");
 
     // Convert hex string into PrivateIdentity
     match PrivateIdentity::new_from_hex_string(&identity_hex) {
@@ -516,6 +451,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeGenerate
     // Generate new identity
     let identity = PrivateIdentity::new_from_rand(OsRng);
 
+    // TODO: create JSON output to provide generated address hash
     let _destination = SingleInputDestination::new(
         identity.clone(),
         Messenger::<PlatformJni>::destination_name(),
@@ -544,6 +480,7 @@ async fn messenger_task(
     for connection in &config.connections {
         match connection {
             Connection::TcpClient(info) => {
+                log::debug!("> add tcp client interface: {} <", info.address);
                 messenger
                     .iface_manager()
                     .await
@@ -552,6 +489,7 @@ async fn messenger_task(
                     .spawn(TcpClient::new(info.address.clone()), TcpClient::spawn);
             }
             Connection::KaonicClient(info) => {
+                log::debug!("> add kaonic client interface: {} <", info.address);
                 messenger.iface_manager().await.lock().await.spawn(
                     KaonicGrpc::new(
                         info.address.clone(),
@@ -574,4 +512,24 @@ async fn messenger_task(
             },
         }
     }
+}
+
+fn parse_json_param<T: serde::de::DeserializeOwned>(
+    env: &mut JNIEnv,
+    input_json: &JString,
+) -> Result<T, MessengerError> {
+    let input_json: String = match env.get_string(&input_json) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => {
+            return Err(MessengerError::SerdeError);
+        }
+    };
+
+    let result = serde_json::from_str::<T>(&input_json);
+    if let Err(err) = result {
+        log::error!("incorrect input json: \"{}\"", err);
+        return Err(MessengerError::SerdeError);
+    }
+
+    Ok(result.unwrap())
 }

@@ -16,7 +16,7 @@ pub struct Contact {
     pub contact: ContactData,
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum MessengerError {
     Timeout,
     NotFound,

@@ -8,5 +8,4 @@ pub mod messenger;
 pub mod model;
 
 #[cfg(feature = "android")]
-
 mod android_jni;

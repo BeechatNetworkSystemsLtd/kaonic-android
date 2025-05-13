@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use rand_core::OsRng;
 use reticulum::{
-    destination::{link::LinkEvent, link_map::LinkMap, DestinationName, SingleInputDestination},
+    destination::{link::LinkEvent, DestinationName, SingleInputDestination},
     hash::AddressHash,
     identity::PrivateIdentity,
     iface::InterfaceManager,
@@ -25,8 +25,8 @@ use crate::{
     cache::CacheSet,
     event::Event,
     model::{
-        Acknowledge, AnnounceData, CallAudioData, ChatCreate, Contact, ContactConnect, ContactData,
-        FileChunk, FileStart, Message, MessengerError,
+        Acknowledge, AnnounceData, CallAudioData, ChatCreate, Contact, ContactData, FileChunk,
+        FileStart, Message, MessengerError,
     },
 };
 
@@ -35,7 +35,6 @@ struct MessengerHandler<T: Platform> {
     contact: ContactData,
     transport: Arc<Mutex<Transport>>,
     platform: Arc<Mutex<T>>,
-    in_link_map: Arc<Mutex<LinkMap>>,
     known_ids: CacheSet<String>,
     ack_manager: AckManager<String>,
 }
@@ -84,7 +83,6 @@ impl<T: Platform + Send + 'static> Messenger<T> {
             transport: Arc::new(Mutex::new(transport)),
             platform: Arc::new(Mutex::new(platform)),
             known_ids: CacheSet::new(512),
-            in_link_map: Arc::new(Mutex::new(LinkMap::new())),
             ack_manager: AckManager::new(),
         };
 
