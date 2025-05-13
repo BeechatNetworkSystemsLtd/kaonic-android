@@ -15,6 +15,7 @@ import network.beechat.kaonic.sampleapp.theme.SampleAppTheme
 class MainActivity : ComponentActivity() {
     companion object {
         private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
+        private const val REQUEST_STORAGE_PERMISSION = 201
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -58,7 +59,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun checkStoragePermission() {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                REQUEST_STORAGE_PERMISSION
+            )
+        }
+    }
+
     private fun initKaonicService() {
+        checkStoragePermission()
         KaonicService.init(
             KaonicCommunicationManager(
                 KaonicLib.getInstance(applicationContext),

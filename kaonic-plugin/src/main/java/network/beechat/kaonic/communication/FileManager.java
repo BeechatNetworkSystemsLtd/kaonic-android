@@ -31,7 +31,7 @@ public class FileManager {
     protected String chatId;
     protected String address;
 
-    public void startWrite(ContentResolver resolver, String fileName, int fileSize, String fileId, String chatId, String address) throws FileNotFoundException {
+    public void startWrite(ContentResolver resolver, String fileName, int fileSize, String fileId, String chatId, String address) throws IOException {
         this.fileSize = fileSize;
         this.fileName = fileName;
         this.chatId = chatId;
@@ -53,6 +53,7 @@ public class FileManager {
             File path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
             if (!path.exists()) path.mkdirs();
             File file = new File(path, fileName);
+            if(!file.exists()) file.createNewFile();
             fileUri = Uri.fromFile(file);
             outputStream = new FileOutputStream(file, true);
             initialized = true;
