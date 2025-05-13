@@ -1,3 +1,5 @@
+use std::ops::Add;
+
 use reticulum::hash::AddressHash;
 use serde::{Deserialize, Serialize};
 
@@ -72,5 +74,21 @@ impl Event {
             }
             Event::Acknowledge(_) => {}
         }
+    }
+
+    pub fn address_hash(&self) -> AddressHash {
+        match self {
+            Event::ContactFound(contact) => AddressHash::new_from_hex_string(&contact.address),
+            Event::Message(message) => AddressHash::new_from_hex_string(&message.address),
+            Event::CallAudioData(audio_data) => {
+                AddressHash::new_from_hex_string(&audio_data.address)
+            }
+            Event::FileStart(file_start) => AddressHash::new_from_hex_string(&file_start.address),
+            Event::FileChunk(file_chunk) => AddressHash::new_from_hex_string(&file_chunk.address),
+            Event::ContactConnect(connect) => AddressHash::new_from_hex_string(&connect.address),
+            Event::ChatCreate(chat) => AddressHash::new_from_hex_string(&chat.address),
+            Event::Acknowledge(_) => Ok(AddressHash::new_empty()),
+        }
+        .unwrap_or(AddressHash::new_empty())
     }
 }

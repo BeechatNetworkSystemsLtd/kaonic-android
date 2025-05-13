@@ -83,7 +83,7 @@ impl<T: Platform + Send + 'static> Messenger<T> {
             contact,
             transport: Arc::new(Mutex::new(transport)),
             platform: Arc::new(Mutex::new(platform)),
-            known_ids: CacheSet::new(100),
+            known_ids: CacheSet::new(512),
             in_link_map: Arc::new(Mutex::new(LinkMap::new())),
             ack_manager: AckManager::new(),
         };
@@ -130,37 +130,40 @@ pub trait Platform {
     fn receive_file_chunk(&mut self, address: &String, file_id: &String, data: &[u8]);
 }
 
+fn serialize_internal_event(buf: &mut Vec<u8>, event: &Event) -> Result<(), MessengerError> {
+    let result = event.serialize(&mut Serializer::new(buf));
+    if let Err(_) = result {
+        return Err(MessengerError::SerdeError);
+    }
+
+    Ok(())
+}
+
 impl<T: Platform> MessengerHandler<T> {
+    /// Send event into input links connected to destination with specified address
     async fn send_in(&self, address: &AddressHash, event: &Event) {
         let mut buf = Vec::new();
 
-        let encoded_event = event.serialize(&mut Serializer::new(&mut buf));
-
-        if let Err(_) = encoded_event {
-            return;
+        if let Ok(_) = serialize_internal_event(&mut buf, event) {
+            self.transport
+                .lock()
+                .await
+                .send_to_in_links(address, &buf)
+                .await;
         }
-
-        self.transport
-            .lock()
-            .await
-            .send_to_in_links(address, &buf)
-            .await;
     }
 
+    /// Send event into output links connected to destination with specified address
     async fn send_out(&self, address: &AddressHash, event: &Event) {
         let mut buf = Vec::new();
 
-        let encoded_event = event.serialize(&mut Serializer::new(&mut buf));
-
-        if let Err(_) = encoded_event {
-            return;
+        if let Ok(_) = serialize_internal_event(&mut buf, event) {
+            self.transport
+                .lock()
+                .await
+                .send_to_out_links(address, &buf)
+                .await;
         }
-
-        self.transport
-            .lock()
-            .await
-            .send_to_out_links(address, &buf)
-            .await;
     }
 
     async fn send_ack(&self, address: &AddressHash, ack: Acknowledge) {
@@ -194,8 +197,8 @@ async fn handle_messenger<T: Platform + Send + 'static>(
     let _ = tokio::join!(
         handle_announces(handler.clone(), cancel.clone()),
         handle_advertise(handler.clone(), cancel.clone(), contact_destination.clone()),
-        handle_out_data(handler.clone(), cancel.clone(), contact_destination.clone(),),
-        handle_in_data(handler.clone(), cancel.clone()),
+        handle_in_data(handler.clone(), cancel.clone(), contact_destination.clone(),),
+        handle_out_data(handler.clone(), cancel.clone()),
         handle_commands(
             handler.clone(),
             cancel.clone(),
@@ -253,6 +256,7 @@ async fn handle_announces<T: Platform + Send + 'static>(
     }
 }
 
+/// Send's event to destination and wait for acknowledge
 async fn send_ack_event<T: Platform>(
     event_id: &String,
     event: Event,
@@ -266,11 +270,12 @@ async fn send_ack_event<T: Platform>(
     for repeat in 0..MAX_REPEATS {
         let rx = {
             let handler = handler.lock().await;
-            handler.send_in(&address, &event).await;
+            handler.send_out(&address, &event).await;
             handler.ack_manager.wait_for_ack(&event_id).await
         };
 
-        match timeout(Duration::from_millis(500), rx).await {
+        // TODO: change to backoff random timeout
+        match timeout(Duration::from_millis(888), rx).await {
             Ok(_) => {
                 result = Ok(());
                 break;
@@ -284,20 +289,25 @@ async fn send_ack_event<T: Platform>(
     result
 }
 
+/// Manages commands from platform client
 async fn handle_commands<T: Platform + Send + 'static>(
     handler: Arc<Mutex<MessengerHandler<T>>>,
     cancel: CancellationToken,
     contact_destination: Arc<Mutex<SingleInputDestination>>,
     mut cmd_recv: Receiver<MessengerCommand>,
 ) {
-    let contact_address = contact_destination.lock().await.desc.address_hash;
+    let contact_address = contact_destination
+        .lock()
+        .await
+        .desc
+        .address_hash
+        .to_hex_string();
 
     loop {
         tokio::select! {
             _ = cancel.cancelled() => {
                 break;
             },
-
             Some(cmd) = cmd_recv.recv() => {
                 match cmd {
                     MessengerCommand::CallAudioData(_) => {
@@ -309,14 +319,16 @@ async fn handle_commands<T: Platform + Send + 'static>(
                     },
                     MessengerCommand::CallReject(_) => {
                     },
-                    MessengerCommand::SendFileStart(file) => {
+                    MessengerCommand::SendFileStart(mut file) => {
                         let address_str = file.address.clone();
                         let file_id = file.file_id.clone();
                         let address = AddressHash::new_from_hex_string(&address_str).unwrap();
 
                         log::debug!("messenger: send file {}({}) {}kBytes to {}", file.file_name, file.file_id, file.file_size / 1024, address);
 
-                        let result = send_ack_event(&file.id.clone(), Event::FileStart(file), &contact_address, handler.clone()).await;
+                        file.address = contact_address.clone();
+
+                        let result = send_ack_event(&file.id.clone(), Event::FileStart(file), &address, handler.clone()).await;
                         if let Ok(_) = result {
                             let platform = handler.lock().await.platform.clone();
                             tokio::spawn(async move {
@@ -324,7 +336,7 @@ async fn handle_commands<T: Platform + Send + 'static>(
                             });
                         }
                     },
-                    MessengerCommand::SendFileChunk(file) => {
+                    MessengerCommand::SendFileChunk(mut file) => {
 
                         let address_str = file.address.clone();
                         let file_id = file.file_id.clone();
@@ -332,27 +344,33 @@ async fn handle_commands<T: Platform + Send + 'static>(
 
                         log::trace!("messenger: send file chunk {}  to {}", file.file_id, address);
 
-                        let result = send_ack_event(&file.id.clone(), Event::FileChunk(file), &contact_address, handler.clone()).await;
+                        file.address = contact_address.clone();
+
+                        let result = send_ack_event(&file.id.clone(), Event::FileChunk(file), &address, handler.clone()).await;
                         if let Ok(_) = result {
                             let platform = handler.lock().await.platform.clone();
                             tokio::spawn(async move {
-                                platform.lock().await.request_file_chunk(&address_str, &file_id, PACKET_MDU / 2);
+                                platform.lock().await.request_file_chunk(&address_str, &file_id, PACKET_MDU / 4);
                             });
                         }
                     },
-                    MessengerCommand::SendMessage(message) => {
+                    MessengerCommand::SendMessage(mut message) => {
 
                         let address = AddressHash::new_from_hex_string(&message.address).unwrap();
                         log::debug!("messenger: send message to {}", address);
 
-                        let _ = send_ack_event(&message.id.clone(), Event::Message(message), &contact_address, handler.clone()).await;
+                        message.address = contact_address.clone();
+
+                        let _ = send_ack_event(&message.id.clone(), Event::Message(message), &address, handler.clone()).await;
                     },
-                    MessengerCommand::ChatCreate(chat) => {
+                    MessengerCommand::ChatCreate(mut chat) => {
 
                         let address = AddressHash::new_from_hex_string(&chat.address).unwrap();
                         log::debug!("messenger: create chat with {}", address);
 
-                        let _ = send_ack_event(&chat.chat_id.clone(), Event::ChatCreate(chat), &contact_address, handler.clone()).await;
+                        chat.address = contact_address.clone();
+
+                        let _ = send_ack_event(&chat.chat_id.clone(), Event::ChatCreate(chat), &address, handler.clone()).await;
                     },
                 }
             },
@@ -375,6 +393,8 @@ async fn handle_advertise<T: Platform + Send + 'static>(
 
     let _ = announce_data.serialize(&mut Serializer::new(&mut announce_data_buf));
 
+    const ANNOUNCE_INTERVAL: Duration = Duration::from_secs(5);
+
     loop {
         transport
             .lock()
@@ -383,7 +403,7 @@ async fn handle_advertise<T: Platform + Send + 'static>(
             .await;
 
         tokio::select! {
-            _ = tokio::time::sleep(Duration::from_secs(5)) => { },
+            _ = tokio::time::sleep(ANNOUNCE_INTERVAL) => { },
             _ = cancel.cancelled() => {
                 break;
             },
@@ -393,23 +413,22 @@ async fn handle_advertise<T: Platform + Send + 'static>(
 
 async fn handle_ack_event<T: Platform + Send + 'static>(
     handler: &mut MessengerHandler<T>,
-    from_address: &AddressHash,
-    mut event: Event,
+    event: Event,
 ) {
-    log::trace!("messenger: receive event from {}", from_address);
-
     let id = event.to_id();
     let ack_kind = event.to_ack_kind();
 
+    let from_address = event.address_hash();
+    log::trace!("messenger: receive event from {}", from_address);
+
     if handler.known_ids.insert(&id) {
-        event.change_address(from_address);
         match event {
             Event::ChatCreate(_) | Event::Message(_) | Event::FileStart(_) => {
                 handler.platform.lock().await.send_event(&event);
             }
             Event::FileChunk(chunk) => {
                 handler.platform.lock().await.receive_file_chunk(
-                    &from_address.to_hex_string(),
+                    &chunk.address,
                     &chunk.file_id,
                     &chunk.data,
                 );
@@ -417,63 +436,53 @@ async fn handle_ack_event<T: Platform + Send + 'static>(
             _ => {}
         }
     } else {
-        log::warn!("messenger: duplicate detected");
+        log::warn!("messenger: duplicate '{}' detected", id);
     }
 
     let ack = Acknowledge::new(id, ack_kind);
 
+    // TODO: check if it is needed
     handler.ack_manager.handle_ack(&ack.id).await;
 
-    handler.send_ack(from_address, ack).await;
+    handler.send_ack(&from_address, ack).await;
 }
 
-// This function handles request events from a client via "output" link
-async fn handle_out_data<T: Platform + Send + 'static>(
+// This function handles request events from a client via "input" link
+async fn handle_in_data<T: Platform + Send + 'static>(
     handler: Arc<Mutex<MessengerHandler<T>>>,
     cancel: CancellationToken,
     contact_destination: Arc<Mutex<SingleInputDestination>>,
 ) {
-    let contact_address = contact_destination.lock().await.desc.address_hash;
+    let _contact_address = contact_destination.lock().await.desc.address_hash;
 
     let transport = handler.lock().await.transport.clone();
-    let mut link_events = transport.lock().await.out_link_events();
+    let mut link_events = transport.lock().await.in_link_events();
     loop {
         tokio::select! {
             Ok(link_event) = link_events.recv() => {
                 match link_event.event {
-                    LinkEvent::Data(data)=> {
-
+                    LinkEvent::Data(data) => {
                         let event = Deserialize::deserialize(&mut Deserializer::new(data.as_slice()));
 
                         if let Ok(event) = event {
                             match event {
-                                Event::CallAudioData(_) => {
-                                    // let platform = handler.lock().await.platform.clone();
-                                    // platform.lock().await.feed_audio(audio_data);
-                                },
+                                Event::CallAudioData(_) => {},
                                 Event::ChatCreate(_) | Event::Message(_) | Event::FileStart(_) | Event::FileChunk(_)  => {
                                     let mut handler = handler.lock().await;
-                                    handle_ack_event(&mut handler, &link_event.address_hash, event).await;
+                                    handle_ack_event(&mut handler, event).await;
+                                },
+                                Event::Acknowledge(ack) => {
+                                    handler.lock().await.ack_manager.handle_ack(&ack.id).await;
                                 },
                                 Event::ContactFound(_) => {},
-                                Event::Acknowledge(_) => {},
                                 Event::ContactConnect(_) => {},
                             }
                         } else if let Err(err) = event {
                             log::error!("messenger: invalid out event {}", err);
                         }
                     },
-                    LinkEvent::Activated => {
-                        let handler = handler.lock().await;
-                        handler.send_out(
-                            &link_event.address_hash,
-                            &Event::ContactConnect(ContactConnect {
-                                address: contact_address.to_hex_string(),
-                            }))
-                        .await;
-                    },
-                    LinkEvent::Closed => {
-                    },
+                    LinkEvent::Activated => {},
+                    LinkEvent::Closed => {},
                 }
             },
             _ = cancel.cancelled() => {
@@ -483,13 +492,13 @@ async fn handle_out_data<T: Platform + Send + 'static>(
     }
 }
 
-// This function handles response events from client via "input" link
-async fn handle_in_data<T: Platform + Send + 'static>(
+// This function handles response events from client via "output" link
+async fn handle_out_data<T: Platform + Send + 'static>(
     handler: Arc<Mutex<MessengerHandler<T>>>,
     cancel: CancellationToken,
 ) {
     let transport = handler.lock().await.transport.clone();
-    let mut link_events = transport.lock().await.in_link_events();
+    let mut link_events = transport.lock().await.out_link_events();
     loop {
         tokio::select! {
             Ok(link_event) = link_events.recv() => {
@@ -498,13 +507,9 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                         let event = Deserialize::deserialize(&mut Deserializer::new(data.as_slice()));
                         if let Ok(event) = event {
                             match event {
+                                // TODO: remove
                                 Event::Acknowledge(ack) => {
                                     handler.lock().await.ack_manager.handle_ack(&ack.id).await;
-                                },
-                                Event::ContactConnect(connect) => {
-                                    if let Ok(address) = AddressHash::new_from_hex_string(&connect.address) {
-                                        handler.lock().await.in_link_map.lock().await.insert(&link_event.id, &address);
-                                    }
                                 },
                                 _ => { },
                             }
@@ -512,12 +517,8 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                             log::error!("messenger: invalid in event {}", err);
                         }
                     },
-                    LinkEvent::Activated => {
-
-                    },
-                    LinkEvent::Closed => {
-                        handler.lock().await.in_link_map.lock().await.remove(&link_event.id);
-                    },
+                    LinkEvent::Activated => {},
+                    LinkEvent::Closed => {},
                 }
             },
             _ = cancel.cancelled() => {

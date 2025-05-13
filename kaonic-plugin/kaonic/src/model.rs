@@ -20,6 +20,7 @@ pub struct Contact {
 pub enum MessengerError {
     Timeout,
     NotFound,
+    SerdeError,
 }
 
 #[derive(Serialize, Deserialize)]
