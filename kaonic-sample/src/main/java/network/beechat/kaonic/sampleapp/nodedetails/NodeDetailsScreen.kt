@@ -149,36 +149,21 @@ fun MessageItem(message: KaonicEvent<MessageEvent>) {
                 is MessageFileEvent -> {
                     Column(
                         modifier = Modifier.clickable {
-                            /// You’re using a generic MIME type, and no app is registered to handle it.
-                            val intent = Intent(Intent.ACTION_VIEW).apply {
-                                setDataAndType(
-                                    data.path.toUri(),
-                                    "application/octet-stream"
-                                )
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            if(data.path!=null) {
-                                val file = File(data.path!!)
-                                val ext = file.extension.lowercase()
-                                val mimeType = MimeTypeMap.getSingleton()
-                                    .getMimeTypeFromExtension(ext) ?: "application/octet-stream"
-                                val secureUri = FileProvider.getUriForFile(
-                                    context,
-                                    "${context.packageName}.fileprovider",
-                                    file
-                                )
-                                val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(secureUri, mimeType)
+                            val intent= Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(
+                                        data.path!!.toUri(),
+                                        context.contentResolver.getType(data.path!!.toUri())
+                                    )
                                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 }
-
-                                try {
-                                    context.startActivity(intent)
-                                } catch (e: ActivityNotFoundException) {
-                                    Toast.makeText(context, "No app found to open this file.", Toast.LENGTH_SHORT).show()
-                                }
+                                context.startActivity(intent)
+                            try {
+                                context.startActivity(intent)
+                            } catch (e: ActivityNotFoundException) {
+                                val folderIntent = Intent(DownloadManager.ACTION_VIEW_DOWNLOADS)
+                                folderIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(folderIntent)
                             }
-//                            context.startActivity(Intent(DownloadManager.ACTION_VIEW_DOWNLOADS))
                         }
                     ) {
                         Text(

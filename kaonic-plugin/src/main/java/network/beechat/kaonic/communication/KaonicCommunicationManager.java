@@ -217,7 +217,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         MessageFileEvent messageFileEvent = new MessageFileEvent(myAddress,
                 System.currentTimeMillis(), fileSender.getFileId(), fileSender.getChatId(),
                 fileSender.getFileName(), fileSender.getFileSize());
-        messageFileEvent.fileSizeProcessed = fileSender.getProcessedBytes();
+        messageFileEvent.path = fileSender.getFileUri().toString();
 
         try {
             byte[] chunk = fileSender.nextChunk(chunkSize);
@@ -229,6 +229,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
             }
 
             try {
+                messageFileEvent.fileSizeProcessed = fileSender.getProcessedBytes();
                 KaonicEvent<MessageFileEvent> kaonicEvent = new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
                         messageFileEvent);
                 onEventReceived(objectMapper.writeValueAsString(kaonicEvent));

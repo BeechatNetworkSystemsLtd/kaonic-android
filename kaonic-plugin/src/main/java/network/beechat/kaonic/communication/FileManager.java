@@ -79,14 +79,13 @@ public class FileManager {
 
 
     public boolean startSend(ContentResolver resolver, String fileId, String chatId, String address, String fileUriString) throws FileNotFoundException {
+        close();
         this.chatId = chatId;
         this.fileId = fileId;
         this.address = address;
-        Uri uri = Uri.parse(fileUriString);
-        fileUri = uri;
-        close();
+        this.fileUri = Uri.parse(fileUriString);
 
-        Cursor cursor = resolver.query(uri, null, null, null, null);
+        Cursor cursor = resolver.query(this.fileUri, null, null, null, null);
         if (cursor != null) {
             int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
             int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
@@ -98,7 +97,7 @@ public class FileManager {
             }
         }
 
-        inputStream = resolver.openInputStream(uri);
+        inputStream = resolver.openInputStream(this.fileUri);
         initialized = true;
 
         return true;
