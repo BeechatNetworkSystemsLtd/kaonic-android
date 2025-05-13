@@ -17,6 +17,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
 
 public class FileManager {
     protected Uri fileUri;
@@ -109,8 +110,12 @@ public class FileManager {
 
         byte[] chunk = new byte[chunkSize];
 
-        inputStream.read(chunk, 0, chunkSize);
-        processedBytes += chunkSize;
+        final int readCount = inputStream.read(chunk, 0, chunkSize);
+        processedBytes += readCount;
+
+        if (readCount < chunkSize) {
+            chunk = Arrays.copyOf(chunk, readCount);
+        }
 
         return chunk;
     }
