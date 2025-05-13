@@ -63,7 +63,7 @@ object KaonicService : KaonicEventListener {
 
     override fun onEventReceived(event: KaonicEvent<KaonicEventData>) {
         CoroutineScope(Dispatchers.Default).launch {
-            Log.i(TAG, "onEventReceived ${event.data.javaClass.name}")
+            // Log.i(TAG, "onEventReceived ${event.data.javaClass.name}")
             when (event.type) {
                 KaonicEventType.MESSAGE_TEXT, KaonicEventType.MESSAGE_FILE,
                      KaonicEventType.CHAT_CREATE-> {

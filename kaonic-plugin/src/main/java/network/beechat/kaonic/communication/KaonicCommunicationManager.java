@@ -116,8 +116,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
 
     private void transmitData(KaonicEvent kaonicEvent) {
         try {
-            String jsonString = objectMapper.writeValueAsString(kaonicEvent);
-            Log.i(TAG, "\uD83D\uDD3C Kaonic data sent:" + jsonString);
+            final String jsonString = objectMapper.writeValueAsString(kaonicEvent);
             kaonicLib.sendMessage(jsonString);
         } catch (JsonProcessingException e) {
             Log.e(TAG, Objects.requireNonNull(e.getMessage()));
@@ -139,7 +138,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
 
     @Override
     public void onEventReceived(String dataJson) {
-        Log.i(TAG, "\uD83D\uDD3D Kaonic data received:" + dataJson);
+        // Log.i(TAG, "\uD83D\uDD3D Kaonic data received:" + dataJson);
         try {
             JSONObject eventObject = new JSONObject(dataJson);
             String eventType = eventObject.getString("type");
@@ -180,10 +179,9 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallRejectEvent.class);
             }
             if (kaonicEventData != null) {
-                KaonicEvent event = new KaonicEvent(eventType);
+                final KaonicEvent event = new KaonicEvent(eventType);
                 event.data = kaonicEventData;
 
-                Log.i(TAG, "\uD83D\uDCDA onEventReceived called");
                 if (eventListener != null) {
                     eventListener.onEventReceived(event);
                 }
