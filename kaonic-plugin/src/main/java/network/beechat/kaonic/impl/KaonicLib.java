@@ -49,7 +49,7 @@ public class KaonicLib {
         start(loadSecret(), 
             "{" + 
                 "\"contact\":{\"name\":\"Kaonic\"}," +
-                "\"connections\":[ {\"type\":\"TcpClient\", \"info\": { \"address\": \"192.168.1.134:4242\"}}]" +
+                "\"connections\":[ {\"type\":\"TcpClient\", \"info\": { \"address\": \"192.168.0.224:4242\"}}]" +
            "}");
     }
 

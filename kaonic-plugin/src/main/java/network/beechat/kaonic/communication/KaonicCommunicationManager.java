@@ -198,7 +198,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         FileManager fileSender = fileSenders.get(fileId);
         if (fileSender == null) return;
 
-        MessageFileEvent messageFileEvent = new MessageFileEvent(fileSender.getAddress(),
+        MessageFileEvent messageFileEvent = new MessageFileEvent(myAddress,
                 System.currentTimeMillis(), fileSender.getFileId(), fileSender.getChatId(),
                 fileSender.getFileName(), fileSender.getFileSize());
         messageFileEvent.fileSizeProcessed = fileSender.getProcessedBytes();

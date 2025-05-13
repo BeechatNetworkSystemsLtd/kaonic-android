@@ -74,12 +74,13 @@ class ChatService(scope: CoroutineScope) {
             it.data is MessageEvent && (it.data as MessageEvent).id == event.data.id
         }
         if (existingMessages.isNotEmpty()) {
-            val index = oldList.indexOf(existingMessages.first())
+            val newList = ArrayList(oldList)
+            val index = newList.indexOf(existingMessages.first())
             if (index != -1) {
-                oldList.removeAt(index)
-                oldList.add(index, event)
+                newList.removeAt(index)
+                newList.add(index, event)
             }
-            flow.value = oldList
+            flow.value = newList
         } else {
             val newList = ArrayList(oldList)
             newList.add(event)
