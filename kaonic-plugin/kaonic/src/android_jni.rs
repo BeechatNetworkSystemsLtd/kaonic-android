@@ -499,9 +499,9 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendAudi
     ptr: jlong,
     data: JByteArray,
 ) {
-    let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
+    let _lib = unsafe { &mut *(ptr as *mut KaonicLib) };
 
-    let data: Vec<u8> = match env.convert_byte_array(data) {
+    let _data: Vec<u8> = match env.convert_byte_array(data) {
         Ok(bytes) => bytes,
         Err(_) => vec![],
     };
