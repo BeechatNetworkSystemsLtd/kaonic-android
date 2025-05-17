@@ -88,7 +88,7 @@ public class KaonicLib {
     }
 
     public void sendConfig(String configJson){
-        //nativeConfig()
+        nativeConfigure(this.pointer, configJson);
     }
 
     private static native void libraryInit();
