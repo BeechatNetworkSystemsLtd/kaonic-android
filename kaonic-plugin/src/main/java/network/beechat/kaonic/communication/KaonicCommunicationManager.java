@@ -95,7 +95,8 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
             config.put("channel_spacing", channelSpacing);
             config.put("tx_power", txPower);
 
-            kaonicLib.sendConfig(config.toString());
+            String jsonString=config.toString();
+            kaonicLib.sendConfig(jsonString);
         } catch (JSONException e) {
             e.printStackTrace();
         }

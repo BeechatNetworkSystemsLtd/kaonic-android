@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import network.beechat.kaonic.sampleapp.models.Module
 import network.beechat.kaonic.sampleapp.models.OFDMOptions
 import network.beechat.kaonic.sampleapp.models.OFDMRate
 import network.beechat.kaonic.sampleapp.services.KaonicService
@@ -16,7 +17,7 @@ const val defaultTxPower = "10";
 data class SettingsState(
     val mcs: OFDMRate = OFDMRate.MCS_0,
     val optionNumber: OFDMOptions = OFDMOptions.OPTION1,
-    val module: Int = 0,
+    val module: Module = Module.rfA,
     val frequency: String = defaultFrequency,
     val channel: Int = 1,
     val channelSpacing: String = defaultChannelSpacing,
@@ -29,6 +30,9 @@ class SettingsViewModel : ViewModel() {
 
     fun updateMcs(value: OFDMRate) {
         _uiState.update { it.copy(mcs = value) }
+    }
+    fun updateModule(value: Module) {
+        _uiState.update { it.copy(module = value) }
     }
 
     fun updateOption(option: OFDMOptions) {
@@ -56,7 +60,7 @@ class SettingsViewModel : ViewModel() {
         KaonicService.sendConfig(
             OFDMRate.entries.indexOf(state.mcs),
             OFDMOptions.entries.indexOf(state.optionNumber),
-            0,
+            Module.entries.indexOf(state.module),
             state.frequency.toIntOrNull() ?: defaultFrequency.toInt(),
             state.channel,
             state.channelSpacing.toIntOrNull() ?: defaultChannelSpacing.toInt(),

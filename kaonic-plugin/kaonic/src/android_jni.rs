@@ -55,7 +55,7 @@ struct KaonicConfig {
     channel: u32,
     channel_spacing: u32,
     tx_power: u32,
-    msc: u32,
+    mcs: u32,
     opt: u32,
 }
 
@@ -69,7 +69,7 @@ impl KaonicConfig {
             tx_power: self.tx_power,
             phy_config: Some(PhyConfig::Ofdm(
                 reticulum::iface::kaonic::kaonic_grpc::proto::RadioPhyConfigOfdm {
-                    mcs: self.msc,
+                    mcs: self.mcs,
                     opt: self.opt,
                 },
             )),

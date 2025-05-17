@@ -7,6 +7,10 @@ enum class OFDMOptions {
     OPTION4
 }
 
+enum class Module {
+    rfA, rfB
+}
+
 enum class OFDMRate {
     MCS_0,
     MCS_1,

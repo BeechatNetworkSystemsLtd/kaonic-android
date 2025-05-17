@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import network.beechat.kaonic.sampleapp.models.Module
 import network.beechat.kaonic.sampleapp.models.OFDMOptions
 import network.beechat.kaonic.sampleapp.models.OFDMRate
 import network.beechat.kaonic.sampleapp.view.MainButton
@@ -68,7 +69,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                     MainTextField(
                         value = state.txPower,
                         onValueChange = {
-                            viewModel.updateTxPower(state.txPower)
+                            val value = it.toIntOrNull()
+                            if (value != null && value > 30) return@MainTextField
+                            viewModel.updateTxPower(it)
                         },
                         keyboardType = KeyboardType.Number,
                         suffix = { Text("dB", fontSize = 13.sp, color = Color.Black) }
@@ -117,6 +120,16 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                         viewModel.updateMcs(it as OFDMRate)
                     }
                 )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                RadioGroupSection(
+                    label = "Module",
+                    options = Module.entries,
+                    selected = state.module,
+                    onSelected = {
+                        viewModel.updateModule(it as Module)
+                    }
+                )
 
                 Spacer(modifier = Modifier.height(32.dp))
 
@@ -125,6 +138,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                     onPressed = {
                         viewModel.sendConfig()
                         Toast.makeText(context, "Configs Sent", Toast.LENGTH_SHORT).show()
+                        onBack()
                     }
                 )
                 Spacer(modifier = Modifier.height(32.dp))
