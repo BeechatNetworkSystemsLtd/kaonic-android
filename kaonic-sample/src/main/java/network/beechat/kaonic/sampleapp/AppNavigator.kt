@@ -1,6 +1,5 @@
 package network.beechat.kaonic.sampleapp
 
-import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -18,6 +17,8 @@ import network.beechat.kaonic.sampleapp.nodedetails.NodeDetailsViewModelFactory
 import network.beechat.kaonic.sampleapp.scan.ScanScreen
 import network.beechat.kaonic.sampleapp.scan.ScanScreenViewModel
 import network.beechat.kaonic.sampleapp.services.ChatService
+import network.beechat.kaonic.sampleapp.settings.SettingsScreen
+import network.beechat.kaonic.sampleapp.settings.SettingsViewModel
 
 val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -32,7 +33,6 @@ fun AppNavigator() {
      *         CallService(appScope)
      *     }
      *
-     *     // 👇 Add this
      *     LaunchedEffect(Unit) {
      *         callService.navigationEvents.collect { route ->
      *             navController.navigate(route)
@@ -44,9 +44,11 @@ fun AppNavigator() {
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
             val viewModel: ScanScreenViewModel = viewModel()
-            ScanScreen(viewModel = viewModel, onNavigate = { name ->
-                navController.navigate("nodeDetails/$name")
-            })
+            ScanScreen(
+                viewModel = viewModel, onOpenChat = { name ->
+                    navController.navigate("nodeDetails/$name")
+                },
+                onOpenSettings = { navController.navigate("settings") })
         }
         composable(
             "nodeDetails/{address}",
@@ -56,6 +58,12 @@ fun AppNavigator() {
             val viewModel: NodeDetailsViewModel =
                 viewModel(factory = NodeDetailsViewModelFactory(address, chatService))
             NodeDetailsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+        }
+        composable("settings") {
+            val viewModel: SettingsViewModel = viewModel()
+            SettingsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() })
         }
     }
 }

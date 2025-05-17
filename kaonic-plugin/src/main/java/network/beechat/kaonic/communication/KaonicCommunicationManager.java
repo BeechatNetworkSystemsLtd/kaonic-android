@@ -83,6 +83,24 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         return myAddress;
     }
 
+    public void sendConfig(int mcs, int optionNumber, int module, int frequency,
+                           int channel, int channelSpacing, int txPower){
+        try {
+            JSONObject config = new JSONObject();
+            config.put("mcs", mcs);
+            config.put("opt", optionNumber);
+            config.put("module", module);
+            config.put("freq", frequency);
+            config.put("channel", channel);
+            config.put("channel_spacing", channelSpacing);
+            config.put("tx_power", txPower);
+
+            kaonicLib.sendConfig(config.toString());
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
     public void createChat(String address, String chatId) {
         try {
             kaonicLib.createChat(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.CHAT_CREATE,

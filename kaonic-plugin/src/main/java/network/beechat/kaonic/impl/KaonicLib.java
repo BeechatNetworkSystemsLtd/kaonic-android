@@ -84,8 +84,11 @@ public class KaonicLib {
 
     public String generateSecret() {
         String json = nativeGenerate(this.pointer);
-        // TODO: Parse JSON
         return json;
+    }
+
+    public void sendConfig(String configJson){
+        //nativeConfig()
     }
 
     private static native void libraryInit();
