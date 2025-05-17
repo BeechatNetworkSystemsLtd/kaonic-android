@@ -10,7 +10,9 @@ use rand_core::OsRng;
 use reticulum::destination::SingleInputDestination;
 use reticulum::hash::AddressHash;
 use reticulum::identity::PrivateIdentity;
+use reticulum::iface::kaonic::kaonic_grpc::proto::configuration_request::PhyConfig;
 use reticulum::iface::kaonic::kaonic_grpc::KaonicGrpc;
+use reticulum::iface::kaonic::RadioConfig;
 use reticulum::iface::tcp_client::TcpClient;
 
 use serde::{Deserialize, Serialize};
@@ -46,11 +48,41 @@ struct MessengerStartConfig {
     connections: Vec<Connection>,
 }
 
+#[derive(Serialize, Deserialize)]
+struct KaonicConfig {
+    module: i32,
+    freq: u32,
+    channel: u32,
+    channel_spacing: u32,
+    tx_power: u32,
+    msc: u32,
+    opt: u32,
+}
+
+impl KaonicConfig {
+    pub fn to_radio_config(&self) -> RadioConfig {
+        RadioConfig {
+            module: self.module,
+            freq: self.freq,
+            channel: self.channel,
+            channel_spacing: self.channel_spacing,
+            tx_power: self.tx_power,
+            phy_config: Some(PhyConfig::Ofdm(
+                reticulum::iface::kaonic::kaonic_grpc::proto::RadioPhyConfigOfdm {
+                    mcs: self.msc,
+                    opt: self.opt,
+                },
+            )),
+        }
+    }
+}
+
 struct KaonicLib {
     jni: Arc<Mutex<KaonicJni>>,
     runtime: Arc<Runtime>,
     cancel: CancellationToken,
     cmd_send: Sender<MessengerCommand>,
+    kaonic_config_send: Sender<RadioConfig>,
 }
 
 struct PlatformJni {
@@ -291,11 +323,13 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
     };
 
     let (cmd_send, _) = tokio::sync::mpsc::channel(1);
+    let (kaonic_config_send, _) = tokio::sync::mpsc::channel(1);
     let lib = Box::new(KaonicLib {
         jni: Arc::new(Mutex::new(jni)),
         runtime,
         cancel: CancellationToken::new(),
         cmd_send,
+        kaonic_config_send,
     });
 
     Box::into_raw(lib) as jlong
@@ -385,6 +419,24 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeDestroy(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeConfigure(
+    mut env: JNIEnv,
+    _obj: JObject,
+    ptr: jlong,
+    config_json: JString,
+) {
+    // Safety: ptr must be a valid pointer created by nativeInit
+    let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
+
+    let kaonic_config = parse_json_param::<KaonicConfig>(&mut env, &config_json)
+        .expect("valid kaonic config");
+
+    let _ = lib
+        .kaonic_config_send
+        .blocking_send(kaonic_config.to_radio_config());
+}
+
+#[no_mangle]
 pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
     mut env: JNIEnv,
     _obj: JObject,
@@ -400,6 +452,9 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
 
     let (cmd_send, cmd_recv) = tokio::sync::mpsc::channel(1);
     lib.cmd_send = cmd_send;
+
+    let (kaonic_config_send, kaonoc_config_recv) = tokio::sync::mpsc::channel(1);
+    lib.kaonic_config_send = kaonic_config_send;
 
     let identity_hex: String = match env.get_string(&identity) {
         Ok(jstr) => jstr.into(),
@@ -418,6 +473,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
             lib.runtime.spawn(messenger_task(
                 identity,
                 cmd_recv,
+                kaonoc_config_recv,
                 lib.jni.clone(),
                 start_config,
                 lib.cancel.clone(),
@@ -465,6 +521,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeGenerate
 async fn messenger_task(
     identity: PrivateIdentity,
     mut cmd_rx: tokio::sync::mpsc::Receiver<MessengerCommand>,
+    mut kaonic_config_rx: tokio::sync::mpsc::Receiver<RadioConfig>,
     jni: Arc<Mutex<KaonicJni>>,
     config: MessengerStartConfig,
     cancel: CancellationToken,
@@ -473,6 +530,8 @@ async fn messenger_task(
         "kaonic: start messenger for contact '{}'",
         config.contact.name
     );
+
+    let mut kaonic_config_rx = Some(kaonic_config_rx);
 
     let messenger = Messenger::new(identity, config.contact, "messenger", PlatformJni { jni });
 
@@ -493,8 +552,8 @@ async fn messenger_task(
                 messenger.iface_manager().await.lock().await.spawn(
                     KaonicGrpc::new(
                         info.address.clone(),
-                        reticulum::iface::kaonic::RadioModule::RadioA,
-                        None,
+                        RadioConfig::new_for_module(reticulum::iface::kaonic::RadioModule::RadioA),
+                        kaonic_config_rx.take(),
                     ),
                     KaonicGrpc::spawn,
                 );

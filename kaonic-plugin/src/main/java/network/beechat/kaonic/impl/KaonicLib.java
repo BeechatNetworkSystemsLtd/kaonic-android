@@ -100,6 +100,7 @@ public class KaonicLib {
 
     private native String nativeGenerate(long ptr);
 
+    private native void nativeConfigure(long ptr, String configJson);
     private native void nativeSendEvent(long ptr, String eventJson);
     private native void nativeSendAudio(long ptr, byte[] data);
     private native void nativeSendFileChunk(long ptr, String address, String id, byte[] data);
