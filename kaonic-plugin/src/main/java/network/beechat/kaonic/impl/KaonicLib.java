@@ -91,6 +91,26 @@ public class KaonicLib {
         nativeConfigure(this.pointer, configJson);
     }
 
+    public void sendCallInvoke(String eventJson) {
+        if (eventJson != null) {
+//            nativeSendCallInvokeEvent(this.pointer, eventJson);
+        }
+    }
+
+    public void sendCallAnswer(String eventJson) {
+        if (eventJson != null) {
+//            nativeSendCallAnswerEvent(this.pointer, eventJson);
+            startAudio();
+        }
+    }
+
+    public void sendCallReject(String eventJson) {
+        if (eventJson != null) {
+//            nativeSendCallRejectEvent(this.pointer, eventJson);
+            stopAudio();
+        }
+    }
+
     private static native void libraryInit();
 
     private native long nativeInit(Context context);

@@ -11,11 +11,11 @@ public interface KaonicEventType {
             CHAT_CREATE};
 
     ///  calls
-    String CALL_NEW = "new_call";
-    String CALL_ANSWER = "call_answer";
-    String CALL_REJECT = "call_reject";
-    String CALL_VOICE = "call_voice";
-    String[] callEvents = new String[]{CALL_NEW, CALL_ANSWER, CALL_REJECT, CALL_VOICE};
+    String CALL_INVOKE = "CallInvoke";
+    String CALL_ANSWER = "CallAnswer";
+    String CALL_REJECT = "CallReject";
+    String CALL_TIMEOUT = "CallTimeout";
+    String[] callEvents = new String[]{CALL_INVOKE, CALL_ANSWER, CALL_REJECT};
 
     /// other
     String CONTACT_FOUND = "ContactFound";

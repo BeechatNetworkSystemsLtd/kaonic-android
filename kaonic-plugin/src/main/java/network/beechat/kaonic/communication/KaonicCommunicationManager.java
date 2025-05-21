@@ -23,10 +23,7 @@ import network.beechat.kaonic.models.KaonicEvent;
 import network.beechat.kaonic.models.KaonicEventData;
 import network.beechat.kaonic.models.KaonicEventType;
 import network.beechat.kaonic.models.ContactFoundEvent;
-import network.beechat.kaonic.models.calls.CallAnswerEvent;
-import network.beechat.kaonic.models.calls.CallNewEvent;
-import network.beechat.kaonic.models.calls.CallRejectEvent;
-import network.beechat.kaonic.models.calls.CallVoiceEvent;
+import network.beechat.kaonic.models.calls.CallEventData;
 import network.beechat.kaonic.models.connection.ConnectionConfig;
 import network.beechat.kaonic.models.messages.ChatCreateEvent;
 import network.beechat.kaonic.models.messages.MessageFileEvent;
@@ -34,7 +31,7 @@ import network.beechat.kaonic.models.messages.MessageFileStartEvent;
 import network.beechat.kaonic.models.messages.MessageLocationEvent;
 import network.beechat.kaonic.models.messages.MessageTextEvent;
 
-public class KaonicCommunicationManager implements KaonicLib.EventListener {
+public class KaonicCommunicationManager {
     final private String TAG = "LibCommunicationHandler";
     final private @NonNull KaonicLib kaonicLib;
     final private @NonNull ContentResolver contentResolver;
@@ -44,10 +41,26 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
     private KaonicEventListener eventListener;
     private String myAddress = "1234567890";
 
+
     public KaonicCommunicationManager(@NonNull KaonicLib kaonicLib, @NonNull ContentResolver resolver) {
         this.kaonicLib = kaonicLib;
         this.contentResolver = resolver;
-        kaonicLib.setEventListener(this);
+        kaonicLib.setEventListener(new KaonicLib.EventListener() {
+            @Override
+            public void onEventReceived(String jsonData) {
+                kaonicOnEventReceived(jsonData);
+            }
+
+            @Override
+            public void onFileChunkRequest(String fileId, int chunkSize) {
+                kaonicOnFileChunkRequest(fileId, chunkSize);
+            }
+
+            @Override
+            public void onFileChunkReceived(String fileId, byte[] bytes) {
+                kaonicOnFileChunkReceived(fileId, bytes);
+            }
+        });
     }
 
     public boolean start(String secret, ConnectionConfig connectionConfig) {
@@ -84,7 +97,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
     }
 
     public void sendConfig(int mcs, int optionNumber, int module, int frequency,
-                           int channel, int channelSpacing, int txPower){
+                           int channel, int channelSpacing, int txPower) {
         try {
             JSONObject config = new JSONObject();
             config.put("mcs", mcs);
@@ -95,13 +108,14 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
             config.put("channel_spacing", channelSpacing);
             config.put("tx_power", txPower);
 
-            String jsonString=config.toString();
+            String jsonString = config.toString();
             kaonicLib.sendConfig(jsonString);
         } catch (JSONException e) {
             e.printStackTrace();
         }
     }
 
+    //region Chat methods
     public void createChat(String address, String chatId) {
         try {
             kaonicLib.createChat(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.CHAT_CREATE,
@@ -115,7 +129,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         transmitData(new KaonicEvent(KaonicEventType.MESSAGE_TEXT,
                 new MessageTextEvent(address, System.currentTimeMillis(), chatId, message)));
         try {
-            onEventReceived(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.MESSAGE_TEXT,
+            kaonicOnEventReceived(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.MESSAGE_TEXT,
                     new MessageTextEvent(myAddress, System.currentTimeMillis(), chatId, message))));
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
@@ -137,7 +151,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
                             messageFileEvent);
                     transmitFile(kaonicEvent);
 
-                    onEventReceived(objectMapper.writeValueAsString(new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
+                    kaonicOnEventReceived(objectMapper.writeValueAsString(new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
                             new MessageFileEvent(myAddress,
                                     System.currentTimeMillis(), fileSender.getFileId(), fileSender.getChatId(),
                                     fileSender.getFileName(), fileSender.getFileSize()))));
@@ -150,6 +164,31 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
             throw new RuntimeException(e);
         }
     }
+    //endregion
+
+    //region Call methods
+    public void sendCallEvent(@NonNull String callEventType, @NonNull String address, @NonNull String callId) {
+        try {
+            switch (callEventType) {
+                case KaonicEventType.CALL_INVOKE:
+                    kaonicLib.sendCallInvoke(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.CALL_INVOKE,
+                            new CallEventData(address, callId))));
+                    break;
+                case KaonicEventType.CALL_ANSWER:
+                    kaonicLib.sendCallAnswer(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.CALL_ANSWER,
+                            new CallEventData(address, callId))));
+                    break;
+                case KaonicEventType.CALL_REJECT:
+                    kaonicLib.sendCallReject(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.CALL_REJECT,
+                            new CallEventData(address, callId))));
+                    break;
+
+            }
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+    //endregion
 
     private void transmitData(KaonicEvent kaonicEvent) {
         try {
@@ -173,8 +212,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         }
     }
 
-    @Override
-    public void onEventReceived(String dataJson) {
+    private void kaonicOnEventReceived(String dataJson) {
         // Log.i(TAG, "\uD83D\uDD3D Kaonic data received:" + dataJson);
         try {
             JSONObject eventObject = new JSONObject(dataJson);
@@ -203,17 +241,11 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
                 case KaonicEventType.MESSAGE_FILE:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), MessageFileEvent.class);
                     break;
-                case KaonicEventType.CALL_NEW:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallNewEvent.class);
-                    break;
+                case KaonicEventType.CALL_INVOKE:
                 case KaonicEventType.CALL_ANSWER:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallAnswerEvent.class);
-                    break;
-                case KaonicEventType.CALL_VOICE:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallVoiceEvent.class);
-                    break;
                 case KaonicEventType.CALL_REJECT:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallRejectEvent.class);
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallEventData.class);
+                    break;
             }
             if (kaonicEventData != null) {
                 final KaonicEvent event = new KaonicEvent(eventType);
@@ -228,8 +260,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         }
     }
 
-    @Override
-    public void onFileChunkRequest(String fileId, int chunkSize) {
+    private void kaonicOnFileChunkRequest(String fileId, int chunkSize) {
         FileManager fileSender = fileSenders.get(fileId);
         if (fileSender == null) return;
 
@@ -251,7 +282,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
                 messageFileEvent.fileSizeProcessed = fileSender.getProcessedBytes();
                 KaonicEvent<MessageFileEvent> kaonicEvent = new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
                         messageFileEvent);
-                onEventReceived(objectMapper.writeValueAsString(kaonicEvent));
+                kaonicOnEventReceived(objectMapper.writeValueAsString(kaonicEvent));
             } catch (JsonProcessingException e) {
                 Log.e(TAG, e.toString());
             }
@@ -261,8 +292,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
 
     }
 
-    @Override
-    public void onFileChunkReceived(String fileId, byte[] bytes) {
+    private void kaonicOnFileChunkReceived(String fileId, byte[] bytes) {
         FileManager fileReceiver = fileReceivers.get(fileId);
         if (fileReceiver == null) return;
 
@@ -280,7 +310,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         try {
             KaonicEvent<MessageFileEvent> kaonicEvent = new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
                     messageFileEvent);
-            onEventReceived(objectMapper.writeValueAsString(kaonicEvent));
+            kaonicOnEventReceived(objectMapper.writeValueAsString(kaonicEvent));
         } catch (JsonProcessingException e) {
             Log.e(TAG, e.toString());
         }
