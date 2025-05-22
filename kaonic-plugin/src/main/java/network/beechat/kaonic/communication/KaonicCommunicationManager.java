@@ -258,8 +258,9 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
     }
+
+
 
     @Override
     public void onFileChunkReceived(String fileId, byte[] bytes) {
@@ -284,6 +285,11 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         } catch (JsonProcessingException e) {
             Log.e(TAG, e.toString());
         }
+
+    }
+
+    @Override
+    public void onBroadcastReceived(String address, String id, String topic, byte[] bytes) {
 
     }
 

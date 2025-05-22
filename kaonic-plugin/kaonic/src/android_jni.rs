@@ -25,7 +25,7 @@ use log::{self, LevelFilter};
 
 use crate::event::Event;
 use crate::messenger::{Messenger, MessengerCommand, Platform};
-use crate::model::{Connection, ContactData, FileChunk, MessengerError};
+use crate::model::{Broadcast, Connection, ContactData, FileChunk, MessengerError};
 
 #[derive(Clone)]
 struct KaonicJni {
@@ -38,6 +38,7 @@ struct KaonicJni {
     feed_audio_method: JMethodID,
     request_file_chunk_method: JMethodID,
     receive_file_chunk_method: JMethodID,
+    receive_broadcast_method: JMethodID,
 
     jvm: Arc<JavaVM>,
 }
@@ -242,6 +243,42 @@ impl Platform for PlatformJni {
             .unwrap()
         };
     }
+
+    fn receive_broadcast(&mut self, address: &String, id: &String, topic: &String, data: &[u8]) {
+        let jni = self.jni.lock().expect("jni locked");
+
+        let mut env = jni
+            .jvm
+            .attach_current_thread_permanently()
+            .expect("failed to attach thread");
+
+        let address = env.new_string(address).expect("new address string");
+        let id = env.new_string(id).expect("new id string");
+        let topic = env.new_string(topic).expect("new topic string");
+
+        let byte_array = env.new_byte_array(data.len() as i32).unwrap();
+        let buffer: &[i8] = unsafe { std::mem::transmute(data) };
+
+        env.set_byte_array_region(&byte_array, 0, buffer)
+            .expect("byte array with data");
+
+        let arguments = [
+            JValue::Object(&address).as_jni(),
+            JValue::Object(&id).as_jni(),
+            JValue::Object(&topic).as_jni(),
+            JValue::Object(&byte_array).as_jni(),
+        ];
+
+        unsafe {
+            env.call_method_unchecked(
+                &jni.obj,
+                jni.receive_broadcast_method,
+                ReturnType::Primitive(Primitive::Void),
+                &arguments[..],
+            )
+            .unwrap()
+        };
+    }
 }
 
 #[no_mangle]
@@ -307,6 +344,14 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
             )
             .expect("receive file chunk method");
 
+        let receive_broadcast_method = env
+            .get_method_id(
+                &class,
+                "receiveBroadcast",
+                "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;[B)V",
+            )
+            .expect("receive broadcast method");
+
         KaonicJni {
             _context: env
                 .new_global_ref(context)
@@ -318,6 +363,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
             feed_audio_method,
             request_file_chunk_method,
             receive_file_chunk_method,
+            receive_broadcast_method,
             jvm,
         }
     };
@@ -364,6 +410,44 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendEven
             _ => {}
         }
     }
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeBroadcast(
+    mut env: JNIEnv,
+    _obj: JObject,
+    ptr: jlong,
+    id: JString,
+    topic: JString,
+    data: JByteArray,
+) {
+    let lib = unsafe { &*(ptr as *const KaonicLib) };
+
+    let id: String = match env.get_string(&id) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => "".into(),
+    };
+
+    let topic: String = match env.get_string(&topic) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => "".into(),
+    };
+
+    let data: Vec<u8> = match env.convert_byte_array(data) {
+        Ok(bytes) => bytes,
+        Err(_) => vec![],
+    };
+
+    let broadcast = Broadcast {
+        id,
+        address: "".into(),
+        topic,
+        data,
+    };
+
+    let _ = lib
+        .cmd_send
+        .blocking_send(MessengerCommand::Broadcast(broadcast));
 }
 
 #[no_mangle]
@@ -428,8 +512,8 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeConfigur
     // Safety: ptr must be a valid pointer created by nativeInit
     let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
 
-    let kaonic_config = parse_json_param::<KaonicConfig>(&mut env, &config_json)
-        .expect("valid kaonic config");
+    let kaonic_config =
+        parse_json_param::<KaonicConfig>(&mut env, &config_json).expect("valid kaonic config");
 
     let _ = lib
         .kaonic_config_send
@@ -521,7 +605,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeGenerate
 async fn messenger_task(
     identity: PrivateIdentity,
     mut cmd_rx: tokio::sync::mpsc::Receiver<MessengerCommand>,
-    mut kaonic_config_rx: tokio::sync::mpsc::Receiver<RadioConfig>,
+    kaonic_config_rx: tokio::sync::mpsc::Receiver<RadioConfig>,
     jni: Arc<Mutex<KaonicJni>>,
     config: MessengerStartConfig,
     cancel: CancellationToken,

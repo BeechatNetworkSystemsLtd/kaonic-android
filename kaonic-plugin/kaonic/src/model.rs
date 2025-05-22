@@ -94,6 +94,14 @@ pub struct FileChunk {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct Broadcast {
+    pub id: String,
+    pub address: String,
+    pub topic: String,
+    pub data: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct ChatCreate {
     pub address: String,
     pub chat_id: String,

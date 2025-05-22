@@ -25,8 +25,8 @@ use crate::{
     cache::CacheSet,
     event::Event,
     model::{
-        Acknowledge, AnnounceData, CallAudioData, ChatCreate, Contact, ContactData, FileChunk,
-        FileStart, Message, MessengerError,
+        Acknowledge, AnnounceData, Broadcast, CallAudioData, ChatCreate, Contact, ContactData,
+        FileChunk, FileStart, Message, MessengerError,
     },
 };
 
@@ -47,6 +47,7 @@ pub enum MessengerCommand {
     CallAudioData(CallAudioData),
     SendFileStart(FileStart),
     SendFileChunk(FileChunk),
+    Broadcast(Broadcast),
     ChatCreate(ChatCreate),
 }
 
@@ -126,6 +127,7 @@ pub trait Platform {
     fn feed_audio(&mut self, audio_data: &[u8]);
     fn request_file_chunk(&mut self, address: &String, file_id: &String, chunk_size: usize);
     fn receive_file_chunk(&mut self, address: &String, file_id: &String, data: &[u8]);
+    fn receive_broadcast(&mut self, address: &String, id: &String, topic: &String, data: &[u8]);
 }
 
 fn serialize_internal_event(buf: &mut Vec<u8>, event: &Event) -> Result<(), MessengerError> {
@@ -160,6 +162,19 @@ impl<T: Platform> MessengerHandler<T> {
                 .lock()
                 .await
                 .send_to_out_links(address, &buf)
+                .await;
+        }
+    }
+
+    /// Send event into all output links
+    async fn send_out_all(&self, event: &Event) {
+        let mut buf = Vec::new();
+
+        if let Ok(_) = serialize_internal_event(&mut buf, event) {
+            self.transport
+                .lock()
+                .await
+                .send_to_all_out_links(&buf)
                 .await;
         }
     }
@@ -316,6 +331,10 @@ async fn handle_commands<T: Platform + Send + 'static>(
                     MessengerCommand::CallAnswer(_) => {
                     },
                     MessengerCommand::CallReject(_) => {
+                    },
+                    MessengerCommand::Broadcast(mut broadcast) => {
+                        broadcast.address = contact_address.clone();
+                        handler.lock().await.send_out_all(&Event::Broadcast(broadcast)).await;
                     },
                     MessengerCommand::SendFileStart(mut file) => {
                         let address_str = file.address.clone();
@@ -474,6 +493,16 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                                 },
                                 Event::ContactFound(_) => {},
                                 Event::ContactConnect(_) => {},
+                                Event::Broadcast(broadcast) => {
+                                    let mut handler = handler.lock().await;
+                                    if handler.known_ids.insert(&broadcast.id) {
+                                        handler.platform.lock().await.receive_broadcast(
+                                            &broadcast.address,
+                                            &broadcast.id,
+                                            &broadcast.topic,
+                                            &broadcast.data);
+                                    }
+                                },
                             }
                         } else if let Err(err) = event {
                             log::error!("messenger: invalid out event {}", err);

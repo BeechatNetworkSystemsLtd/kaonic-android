@@ -27,6 +27,8 @@ public class KaonicLib {
         void onFileChunkRequest(String fileId, int chunkSize);
 
         void onFileChunkReceived(String fileId, byte[] bytes);
+
+        void onBroadcastReceived(String address, String id, String topic, byte[] bytes);
     }
 
     private static KaonicLib instance;
@@ -82,6 +84,12 @@ public class KaonicLib {
         }
     }
 
+    public void sendBroadcast(String id, String topic, byte[] data) {
+        if (id != null && topic != null && data != null) {
+            nativeSendBroadcast(this.pointer, id, topic, data);
+        }
+    }
+
     public String generateSecret() {
         String json = nativeGenerate(this.pointer);
         return json;
@@ -104,6 +112,7 @@ public class KaonicLib {
     private native void nativeSendEvent(long ptr, String eventJson);
     private native void nativeSendAudio(long ptr, byte[] data);
     private native void nativeSendFileChunk(long ptr, String address, String id, byte[] data);
+    private native void nativeSendBroadcast(long ptr, String id, String topic, byte[] data);
 
     private void receive(String json) {
         if (eventListener != null && json != null) {
@@ -148,6 +157,16 @@ public class KaonicLib {
             // TODO: Optimize thread usage
             new Handler(Looper.getMainLooper()).post(() -> {
                 eventListener.onFileChunkReceived(fileId, data);
+            });
+        }
+    }
+
+    private void receiveBroadcast(String address, String id, String topic, byte[] data) {
+        if (eventListener != null) {
+            // NOTE: onBroadcastReceived should be invoked from different thread
+            // TODO: Optimize thread usage
+            new Handler(Looper.getMainLooper()).post(() -> {
+                eventListener.onBroadcastReceived(address, id, topic, data);
             });
         }
     }
