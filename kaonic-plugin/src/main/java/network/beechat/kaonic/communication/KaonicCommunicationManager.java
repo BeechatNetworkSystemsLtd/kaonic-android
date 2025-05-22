@@ -13,12 +13,14 @@ import org.json.JSONObject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
 import network.beechat.kaonic.impl.KaonicLib;
+import network.beechat.kaonic.models.BroadcastEventData;
 import network.beechat.kaonic.models.KaonicEvent;
 import network.beechat.kaonic.models.KaonicEventData;
 import network.beechat.kaonic.models.KaonicEventType;
@@ -84,7 +86,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
     }
 
     public void sendConfig(int mcs, int optionNumber, int module, int frequency,
-                           int channel, int channelSpacing, int txPower){
+                           int channel, int channelSpacing, int txPower) {
         try {
             JSONObject config = new JSONObject();
             config.put("mcs", mcs);
@@ -95,7 +97,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
             config.put("channel_spacing", channelSpacing);
             config.put("tx_power", txPower);
 
-            String jsonString=config.toString();
+            String jsonString = config.toString();
             kaonicLib.sendConfig(jsonString);
         } catch (JSONException e) {
             e.printStackTrace();
@@ -149,6 +151,10 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public void sendBroadcast(String id, String topic, byte[] data) {
+        kaonicLib.sendBroadcast(id, topic, data);
     }
 
     private void transmitData(KaonicEvent kaonicEvent) {
@@ -229,7 +235,7 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
     }
 
     @Override
-    public void onFileChunkRequest(String fileId, int chunkSize) {
+    public void onFileChunkRequest(@NonNull String fileId, int chunkSize) {
         FileManager fileSender = fileSenders.get(fileId);
         if (fileSender == null) return;
 
@@ -261,9 +267,8 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
     }
 
 
-
     @Override
-    public void onFileChunkReceived(String fileId, byte[] bytes) {
+    public void onFileChunkReceived(@NonNull String fileId, @NonNull byte[] bytes) {
         FileManager fileReceiver = fileReceivers.get(fileId);
         if (fileReceiver == null) return;
 
@@ -289,8 +294,14 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
     }
 
     @Override
-    public void onBroadcastReceived(String address, String id, String topic, byte[] bytes) {
-
+    public void onBroadcastReceived(@NonNull String address, @NonNull String id,
+                                    @NonNull String topic, @NonNull byte[] bytes) {
+        Log.i(TAG, "OnBroadcastReceived " + address + " " + id + " " + topic + " " + Arrays.toString(bytes));
+        KaonicEvent<BroadcastEventData> kaonicEvent = new KaonicEvent<>(KaonicEventType.BROADCAST,
+                new BroadcastEventData(address, id, topic, bytes));
+        if (eventListener != null) {
+            eventListener.onEventReceived(kaonicEvent);
+        }
     }
 
     private void startFileReceiving(MessageFileStartEvent fileStartEvent) {

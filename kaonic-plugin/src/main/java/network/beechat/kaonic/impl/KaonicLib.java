@@ -22,13 +22,14 @@ public class KaonicLib {
     }
 
     public interface EventListener {
-        void onEventReceived(String jsonData);
+        void onEventReceived(@NonNull String jsonData);
 
-        void onFileChunkRequest(String fileId, int chunkSize);
+        void onFileChunkRequest(@NonNull String fileId, int chunkSize);
 
-        void onFileChunkReceived(String fileId, byte[] bytes);
+        void onFileChunkReceived(@NonNull String fileId, @NonNull byte[] bytes);
 
-        void onBroadcastReceived(String address, String id, String topic, byte[] bytes);
+        void onBroadcastReceived(@NonNull String address, @NonNull String id,
+                                 @NonNull String topic, @NonNull byte[] bytes);
     }
 
     private static KaonicLib instance;
@@ -95,23 +96,30 @@ public class KaonicLib {
         return json;
     }
 
-    public void sendConfig(String configJson){
+    public void sendConfig(String configJson) {
         nativeConfigure(this.pointer, configJson);
     }
 
     private static native void libraryInit();
 
     private native long nativeInit(Context context);
+
     private native void nativeDestroy(long ptr);
+
     private native void nativeStart(long ptr, String secret, String contact);
+
     private native void nativeStop(long ptr);
 
     private native String nativeGenerate(long ptr);
 
     private native void nativeConfigure(long ptr, String configJson);
+
     private native void nativeSendEvent(long ptr, String eventJson);
+
     private native void nativeSendAudio(long ptr, byte[] data);
+
     private native void nativeSendFileChunk(long ptr, String address, String id, byte[] data);
+
     private native void nativeSendBroadcast(long ptr, String id, String topic, byte[] data);
 
     private void receive(String json) {

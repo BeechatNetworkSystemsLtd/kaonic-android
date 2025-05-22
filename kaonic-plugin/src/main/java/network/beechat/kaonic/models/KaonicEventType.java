@@ -19,5 +19,6 @@ public interface KaonicEventType {
 
     /// other
     String CONTACT_FOUND = "ContactFound";
+    String BROADCAST = "Broadcast";
 
 }

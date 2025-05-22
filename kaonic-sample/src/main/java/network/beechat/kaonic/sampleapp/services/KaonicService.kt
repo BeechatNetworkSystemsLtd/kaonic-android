@@ -70,6 +70,10 @@ object KaonicService : KaonicEventListener {
         kaonicCommunicationHandler.sendFile(filePath, address, chatId)
     }
 
+    fun sendBroadcast(id: String, topic: String, bytes: ByteArray) {
+        kaonicCommunicationHandler.sendBroadcast(id, topic, bytes)
+    }
+
     fun sendConfig(
         mcs: Int,
         optionNumber: Int,
