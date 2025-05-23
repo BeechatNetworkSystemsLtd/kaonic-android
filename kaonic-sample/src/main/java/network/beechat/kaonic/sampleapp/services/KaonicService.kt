@@ -117,7 +117,8 @@ object KaonicService : KaonicEventListener {
             val SECRET_TAG = "KAONIC_SECRET"
             secret = secureStorageHelper.get(SECRET_TAG)
             if (secret == null) {
-                secret = kaonicCommunicationHandler.generateSecret()
+                val messengerCreds = kaonicCommunicationHandler.generateSecret()
+                secret = messengerCreds?.secret
                 secureStorageHelper.put(SECRET_TAG, secret)
             }
         } catch (e: Exception) {

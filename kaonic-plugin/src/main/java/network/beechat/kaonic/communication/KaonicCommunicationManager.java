@@ -25,6 +25,7 @@ import network.beechat.kaonic.models.KaonicEvent;
 import network.beechat.kaonic.models.KaonicEventData;
 import network.beechat.kaonic.models.KaonicEventType;
 import network.beechat.kaonic.models.ContactFoundEvent;
+import network.beechat.kaonic.models.MessengerCreds;
 import network.beechat.kaonic.models.calls.CallAnswerEvent;
 import network.beechat.kaonic.models.calls.CallNewEvent;
 import network.beechat.kaonic.models.calls.CallRejectEvent;
@@ -69,8 +70,13 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         kaonicLib.stop();
     }
 
-    public String generateSecret() {
-        return kaonicLib.generateSecret();
+    public MessengerCreds generateSecret() {
+        String jsonString = kaonicLib.generateSecret();
+        try {
+            return objectMapper.readValue(jsonString, MessengerCreds.class);
+        } catch (JsonProcessingException e) {
+            return null;
+        }
     }
 
     public void onDestroy() {
