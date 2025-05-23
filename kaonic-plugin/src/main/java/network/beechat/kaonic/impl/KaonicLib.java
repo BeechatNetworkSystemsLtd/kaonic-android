@@ -67,6 +67,10 @@ public class KaonicLib {
         }
     }
 
+    public void stop() {
+        nativeStop(this.pointer);
+    }
+
     public void sendMessage(String eventJson) {
         if (eventJson != null) {
             nativeSendEvent(this.pointer, eventJson);

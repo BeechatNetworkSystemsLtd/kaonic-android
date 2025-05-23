@@ -65,6 +65,10 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         return true;
     }
 
+    public void stop() {
+        kaonicLib.stop();
+    }
+
     public String generateSecret() {
         return kaonicLib.generateSecret();
     }

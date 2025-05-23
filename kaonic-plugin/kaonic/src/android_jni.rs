@@ -574,6 +574,17 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
 }
 
 #[no_mangle]
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStop(
+    _env: JNIEnv,
+    _obj: JObject,
+    ptr: jlong,
+) {
+    // Safety: ptr must be a valid pointer created by nativeInit
+    let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
+    lib.cancel.cancel();
+}
+
+#[no_mangle]
 pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendAudio(
     env: JNIEnv,
     _obj: JObject,
