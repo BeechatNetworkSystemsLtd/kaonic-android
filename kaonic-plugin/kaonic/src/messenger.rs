@@ -140,18 +140,6 @@ fn serialize_internal_event(buf: &mut Vec<u8>, event: &Event) -> Result<(), Mess
 }
 
 impl<T: Platform> MessengerHandler<T> {
-    /// Send event into input links connected to destination with specified address
-    async fn send_in(&self, address: &AddressHash, event: &Event) {
-        let mut buf = Vec::new();
-
-        if let Ok(_) = serialize_internal_event(&mut buf, event) {
-            self.transport
-                .lock()
-                .await
-                .send_to_in_links(address, &buf)
-                .await;
-        }
-    }
 
     /// Send event into output links connected to destination with specified address
     async fn send_out(&self, address: &AddressHash, event: &Event) {
