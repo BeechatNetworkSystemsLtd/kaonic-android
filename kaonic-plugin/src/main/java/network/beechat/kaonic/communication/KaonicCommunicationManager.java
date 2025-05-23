@@ -163,6 +163,22 @@ public class KaonicCommunicationManager implements KaonicLib.EventListener {
         }
     }
 
+    public void sendFile(byte[] fileBytes, String fileName, String address, String chatId) {
+        String fileId = UUID.randomUUID().toString();
+        MessageFileStartEvent messageFileStartEvent = new MessageFileStartEvent(address, System.currentTimeMillis(), fileId, chatId, fileName, fileBytes.length);
+
+        try {
+            KaonicEvent<MessageFileStartEvent> kaonicEvent = new KaonicEvent<>(KaonicEventType.MESSAGE_FILE_START,
+                    messageFileStartEvent);
+            transmitFile(kaonicEvent);
+
+            onEventReceived(objectMapper.writeValueAsString(new KaonicEvent<>(KaonicEventType.MESSAGE_FILE,
+                    new MessageFileEvent(address, System.currentTimeMillis(), fileId, chatId, fileName, fileBytes.length))));
+        } catch (JsonProcessingException e) {
+            Log.e(TAG, "Failed to send " + fileName, e);
+        }
+    }
+
     public void sendBroadcast(String id, String topic, byte[] data) {
         kaonicLib.sendBroadcast(id, topic, data);
     }
