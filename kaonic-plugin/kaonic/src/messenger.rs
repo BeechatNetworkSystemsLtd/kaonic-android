@@ -25,8 +25,8 @@ use crate::{
     cache::CacheSet,
     event::Event,
     model::{
-        Acknowledge, AnnounceData, CallAudioData, ChatCreate, Contact, ContactData, FileChunk,
-        FileStart, Message, MessengerError,
+        Acknowledge, AnnounceData, CallAnswer, CallAudioData, CallInvoke, CallReject, ChatCreate,
+        Contact, ContactData, FileChunk, FileStart, Message, MessengerError,
     },
 };
 
@@ -41,9 +41,9 @@ struct MessengerHandler<T: Platform> {
 
 pub enum MessengerCommand {
     SendMessage(Message),
-    CallInvoke(AddressHash),
-    CallAnswer(AddressHash),
-    CallReject(AddressHash),
+    CallInvoke(CallInvoke),
+    CallAnswer(CallAnswer),
+    CallReject(CallReject),
     CallAudioData(CallAudioData),
     SendFileStart(FileStart),
     SendFileChunk(FileChunk),
@@ -308,14 +308,46 @@ async fn handle_commands<T: Platform + Send + 'static>(
             },
             Some(cmd) = cmd_recv.recv() => {
                 match cmd {
-                    MessengerCommand::CallAudioData(_) => {
-                        // handle call
+                    MessengerCommand::CallAudioData(mut call) => {
+                        let address_str = call.address.clone();
+                        let address = AddressHash::new_from_hex_string(&address_str).unwrap();
+
+                        call.address = contact_address.clone();
+
+                        handler.lock().await.send_out(&address, &Event::CallAudioData(call)).await;
                     },
-                    MessengerCommand::CallInvoke(_) => {
+                    MessengerCommand::CallInvoke(mut call) => {
+                        let address_str = call.address.clone();
+                        let call_id = call.call_id.clone();
+                        let address = AddressHash::new_from_hex_string(&address_str).unwrap();
+
+                        log::info!("messenger: call invoke addr:{} call-id:{}", address, call_id);
+
+                        call.address = contact_address.clone();
+
+                        let _ = send_ack_event(&call.id.clone(), Event::CallInvoke(call), &address, handler.clone()).await;
                     },
-                    MessengerCommand::CallAnswer(_) => {
+                    MessengerCommand::CallAnswer(mut call) => {
+                        let address_str = call.address.clone();
+                        let call_id = call.call_id.clone();
+                        let address = AddressHash::new_from_hex_string(&address_str).unwrap();
+
+                        log::info!("messenger: call answer addr:{} call-id:{}", address, call_id);
+
+                        call.address = contact_address.clone();
+
+                        let _ = send_ack_event(&call.id.clone(), Event::CallAnswer(call), &address, handler.clone()).await;
                     },
-                    MessengerCommand::CallReject(_) => {
+                    MessengerCommand::CallReject(mut call) => {
+                        let address_str = call.address.clone();
+                        let call_id = call.call_id.clone();
+                        let address = AddressHash::new_from_hex_string(&address_str).unwrap();
+
+                        log::info!("messenger: call reject addr:{} call-id:{}", address, call_id);
+
+                        call.address = contact_address.clone();
+
+                        let _ = send_ack_event(&call.id.clone(), Event::CallReject(call), &address, handler.clone()).await;
                     },
                     MessengerCommand::SendFileStart(mut file) => {
                         let address_str = file.address.clone();
@@ -464,8 +496,12 @@ async fn handle_in_data<T: Platform + Send + 'static>(
 
                         if let Ok(event) = event {
                             match event {
-                                Event::CallAudioData(_) => {},
-                                Event::ChatCreate(_) | Event::Message(_) | Event::FileStart(_) | Event::FileChunk(_)  => {
+                                Event::CallAudioData(call) => {
+                                    handler.lock().await.platform.lock().await.feed_audio(&call.data[..]);
+                                },
+                                Event::ChatCreate(_) | Event::Message(_) |
+                                Event::FileStart(_) | Event::FileChunk(_) |
+                                Event::CallInvoke(_) | Event::CallAnswer(_) | Event::CallReject(_) => {
                                     let mut handler = handler.lock().await;
                                     handle_ack_event(&mut handler, event).await;
                                 },
