@@ -17,13 +17,15 @@ import network.beechat.kaonic.sampleapp.nodedetails.NodeDetailsViewModelFactory
 import network.beechat.kaonic.sampleapp.scan.ScanScreen
 import network.beechat.kaonic.sampleapp.scan.ScanScreenViewModel
 import network.beechat.kaonic.sampleapp.services.ChatService
+import network.beechat.kaonic.sampleapp.services.SecureStorageHelper
 import network.beechat.kaonic.sampleapp.settings.SettingsScreen
 import network.beechat.kaonic.sampleapp.settings.SettingsViewModel
+import network.beechat.kaonic.sampleapp.settings.SettingsViewModelFactory
 
 val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
 @Composable
-fun AppNavigator() {
+fun AppNavigator(secureStorageHelper: SecureStorageHelper) {
     val navController = rememberNavController()
     val chatService = remember {
         ChatService(appScope)
@@ -60,7 +62,8 @@ fun AppNavigator() {
             NodeDetailsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
         }
         composable("settings") {
-            val viewModel: SettingsViewModel = viewModel()
+            val viewModel: SettingsViewModel =
+                viewModel(factory = SettingsViewModelFactory(secureStorageHelper))
             SettingsScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() })

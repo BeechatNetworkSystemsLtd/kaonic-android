@@ -53,6 +53,7 @@ dependencies {
     implementation libs.androidx.constraintlayout
     implementation libs.androidx.runtime.android
     implementation libs.androidx.navigation.compose
+    implementation libs.jackson.dataformat.cbor
 
     implementation libs.androidx.material3
     testImplementation libs.junit

@@ -19,11 +19,14 @@ class MainActivity : ComponentActivity() {
         private const val REQUEST_STORAGE_PERMISSION = 201
     }
 
+    lateinit var secureStorageHelper: SecureStorageHelper
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        secureStorageHelper = SecureStorageHelper(applicationContext)
         setContent {
             SampleAppTheme {
-                AppNavigator()
+                AppNavigator(secureStorageHelper)
             }
         }
 
@@ -94,7 +97,7 @@ class MainActivity : ComponentActivity() {
                 KaonicLib.getInstance(applicationContext),
                 contentResolver
             ),
-            SecureStorageHelper(applicationContext)
+            secureStorageHelper
         )
     }
 }
