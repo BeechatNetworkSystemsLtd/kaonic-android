@@ -50,12 +50,11 @@ object KaonicService : KaonicEventListener {
                 ConnectionContact("Kaonic"), arrayListOf(
                     Connection(
                         ConnectionType
-                            .TcpClient, ConnectionInfo("192.168.0.229:4242")
+                            .TcpClient, ConnectionInfo("192.168.0.230:4242")
                     )
                 )
             )
         )
-        print("")
     }
 
     fun createChat(address: String, chatId: String) {
@@ -68,6 +67,18 @@ object KaonicService : KaonicEventListener {
 
     fun sendFileMessage(filePath: String, address: String, chatId: String) {
         kaonicCommunicationHandler.sendFile(filePath, address, chatId)
+    }
+
+    fun answerCall(callId: String, address: String){
+        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_ANSWER,  address, callId)
+    }
+
+    fun rejectCall(callId: String, address: String){
+        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_REJECT,  address, callId)
+    }
+
+    fun startCall(callId: String, address: String){
+        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_INVOKE,  address, callId)
     }
 
     fun sendConfig(

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import network.beechat.kaonic.sampleapp.services.call.CallScreenState
 import network.beechat.kaonic.sampleapp.services.call.CallService
 
 class CallViewModelFactory(
@@ -22,34 +23,28 @@ class CallViewModelFactory(
     }
 }
 
-enum class CallScreenState {
-    incoming,
-    outgoing,
-    callInProgress,
-}
-
 class CallViewModel(
     val callId: String, val address: String, private val callService: CallService,
     isIncoming: Boolean
 ) : ViewModel() {
-    private val _callState =
-        MutableStateFlow(if (isIncoming) CallScreenState.incoming else CallScreenState.outgoing)
-    val callState: StateFlow<CallScreenState> = _callState
 
-    private val _elapsedTime = MutableStateFlow(0)
+    val callState: StateFlow<CallScreenState> =  callService.callState
+
+        private val _elapsedTime = MutableStateFlow(0)
     val elapsedTime: StateFlow<Int> = _elapsedTime
 
     private val scope = CoroutineScope(Dispatchers.Main)
     private var timerJob: Job? = null
 
     fun answerCall() {
+        callService.answerCall();
         scope.launch {
-            _callState.emit(CallScreenState.callInProgress)
             startTimer()
         }
     }
 
     fun rejectCall() {
+        callService.rejectCall()
         stopTimer()
     }
 

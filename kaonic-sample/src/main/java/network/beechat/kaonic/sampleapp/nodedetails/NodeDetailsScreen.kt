@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -56,7 +57,8 @@ import androidx.core.net.toUri
 @Composable
 fun NodeDetailsScreen(
     viewModel: NodeDetailsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onCall: () -> Unit
 ) {
     val messages by viewModel.getMessages(viewModel.nodeAddress)
         .collectAsState(initial = emptyList())
@@ -70,6 +72,14 @@ fun NodeDetailsScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onCall) {
+                        Icon(
+                            imageVector = Icons.Default.Call,
+                            contentDescription = "Call"
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

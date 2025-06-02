@@ -3,6 +3,7 @@ package network.beechat.kaonic.sampleapp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -30,8 +31,9 @@ val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 @Composable
 fun AppNavigator() {
     val navController = rememberNavController()
+    val context = LocalContext.current
     val chatService = remember { ChatService(appScope) }
-    val callService = remember { CallService(appScope) }
+    val callService = remember { CallService(context, appScope) }
 
     LaunchedEffect(Unit) {
         callService.navigationEvents.collect { route ->
@@ -46,7 +48,7 @@ fun AppNavigator() {
                 viewModel = viewModel, onOpenChat = { name ->
                     navController.navigate("nodeDetails/$name")
                 },
-                onOpenSettings = { navController.navigate("incomingCall/1232323/232q31231") })
+                onOpenSettings = { navController.navigate("settings") })
         }
         composable(
             "nodeDetails/{address}",
@@ -55,7 +57,16 @@ fun AppNavigator() {
             val address = backStackEntry.arguments?.getString("address") ?: "Unknown"
             val viewModel: NodeDetailsViewModel =
                 viewModel(factory = NodeDetailsViewModelFactory(address, chatService))
-            NodeDetailsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+            NodeDetailsScreen(
+                viewModel = viewModel, onBack = { navController.popBackStack() },
+                onCall = {
+                    callService.createCall(address)
+                    if (callService.activeCallId != null && callService.activeCallAddress != null)
+                        navController.navigate(
+                            "outgoingCall/${callService.activeCallId}" +
+                                    "/${callService.activeCallAddress}"
+                        )
+                })
         }
         composable("settings") {
             val viewModel: SettingsViewModel = viewModel()

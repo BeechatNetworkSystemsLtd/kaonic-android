@@ -12,6 +12,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import network.beechat.kaonic.sampleapp.services.call.CallScreenState
 
 @Composable
 fun CallScreen(
@@ -19,8 +20,6 @@ fun CallScreen(
     onCallEnd: () -> Unit
 ) {
     val callState = viewModel.callState.collectAsState().value
-    val callId = viewModel.callId
-    val address = viewModel.address
 
     Scaffold { innerPadding ->
         Column(
@@ -37,6 +36,9 @@ fun CallScreen(
                 CallScreenState.outgoing -> CallOutgoing(viewModel, onCallEnd)
 
                 CallScreenState.callInProgress -> CallInProgress(viewModel, onCallEnd)
+                else -> {
+
+                }
             }
         }
     }
