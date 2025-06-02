@@ -33,8 +33,6 @@ struct KaonicJni {
     obj: GlobalRef,
 
     receive_method: JMethodID,
-    start_audio_method: JMethodID,
-    stop_audio_method: JMethodID,
     feed_audio_method: JMethodID,
     request_file_chunk_method: JMethodID,
     receive_file_chunk_method: JMethodID,
@@ -110,44 +108,6 @@ impl Platform for PlatformJni {
                 jni.receive_method,
                 ReturnType::Primitive(Primitive::Void),
                 &arguments[..],
-            )
-            .unwrap()
-        };
-    }
-
-    fn start_audio(&mut self) {
-        let jni = self.jni.lock().expect("jni locked");
-
-        let mut env = jni
-            .jvm
-            .attach_current_thread_permanently()
-            .expect("failed to attach thread");
-
-        unsafe {
-            env.call_method_unchecked(
-                &jni.obj,
-                jni.start_audio_method,
-                ReturnType::Primitive(Primitive::Void),
-                &[],
-            )
-            .unwrap()
-        };
-    }
-
-    fn stop_audio(&mut self) {
-        let jni = self.jni.lock().expect("jni locked");
-
-        let mut env = jni
-            .jvm
-            .attach_current_thread_permanently()
-            .expect("failed to attach thread");
-
-        unsafe {
-            env.call_method_unchecked(
-                &jni.obj,
-                jni.stop_audio_method,
-                ReturnType::Primitive(Primitive::Void),
-                &[],
             )
             .unwrap()
         };
@@ -286,14 +246,6 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
             .get_method_id(&class, "receive", "(Ljava/lang/String;)V")
             .expect("event method");
 
-        let start_audio_method = env
-            .get_method_id(&class, "startAudio", "()V")
-            .expect("start audio method");
-
-        let stop_audio_method = env
-            .get_method_id(&class, "stopAudio", "()V")
-            .expect("stop audio method");
-
         let feed_audio_method = env
             .get_method_id(
                 &class,
@@ -324,8 +276,6 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
                 .expect("Failed to create global ref"),
             obj,
             receive_method,
-            start_audio_method,
-            stop_audio_method,
             feed_audio_method,
             request_file_chunk_method,
             receive_file_chunk_method,

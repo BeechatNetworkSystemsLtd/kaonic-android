@@ -121,8 +121,6 @@ impl<T: Platform + Send + 'static> Messenger<T> {
 
 pub trait Platform {
     fn send_event(&mut self, event: &Event);
-    fn start_audio(&mut self);
-    fn stop_audio(&mut self);
     fn feed_audio(&mut self, address: &String, call_id: &String, audio_data: &[u8]);
     fn request_file_chunk(&mut self, address: &String, file_id: &String, chunk_size: usize);
     fn receive_file_chunk(&mut self, address: &String, file_id: &String, data: &[u8]);
