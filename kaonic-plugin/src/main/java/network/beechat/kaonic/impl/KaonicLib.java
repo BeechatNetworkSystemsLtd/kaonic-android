@@ -93,20 +93,20 @@ public class KaonicLib {
 
     public void sendCallInvoke(String eventJson) {
         if (eventJson != null) {
-//            nativeSendCallInvokeEvent(this.pointer, eventJson);
+            nativeSendEvent(this.pointer, eventJson);
         }
     }
 
     public void sendCallAnswer(String eventJson) {
         if (eventJson != null) {
-//            nativeSendCallAnswerEvent(this.pointer, eventJson);
+            nativeSendEvent(this.pointer, eventJson);
             startAudio();
         }
     }
 
     public void sendCallReject(String eventJson) {
         if (eventJson != null) {
-//            nativeSendCallRejectEvent(this.pointer, eventJson);
+            nativeSendEvent(this.pointer, eventJson);
             stopAudio();
         }
     }

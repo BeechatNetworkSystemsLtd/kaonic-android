@@ -67,10 +67,11 @@ class CallService(private val context: Context, scope: CoroutineScope) {
     }
 
     fun createCall(address: String) {
-        if (_activeCallId != null) return
+//        if (_activeCallId != null) return
 
         _activeCallId = UUID.randomUUID().toString()
         _activeCallAddress = address
+        KaonicService.startCall(_activeCallId!!,_activeCallAddress!!)
         scope.launch {
             _callState.emit(CallScreenState.outgoing)
         }
