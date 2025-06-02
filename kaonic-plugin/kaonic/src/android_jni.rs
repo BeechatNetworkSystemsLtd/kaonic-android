@@ -25,7 +25,7 @@ use log::{self, LevelFilter};
 
 use crate::event::Event;
 use crate::messenger::{Messenger, MessengerCommand, Platform};
-use crate::model::{Connection, ContactData, FileChunk, MessengerError, CallAudioData};
+use crate::model::{CallAudioData, Connection, ContactData, FileChunk, MessengerError};
 
 #[derive(Clone)]
 struct KaonicJni {
@@ -294,7 +294,6 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
             .get_method_id(&class, "stopAudio", "()V")
             .expect("stop audio method");
 
-log::debug!("DDDDDDDDDDDDDDD");
         let feed_audio_method = env
             .get_method_id(
                 &class,
@@ -303,7 +302,6 @@ log::debug!("DDDDDDDDDDDDDDD");
             )
             .expect("feed audio method");
 
-log::debug!("EEEEEEEEEEEEEEEEE");
         let request_file_chunk_method = env
             .get_method_id(
                 &class,
@@ -513,11 +511,11 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
 
 #[no_mangle]
 pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendAudio(
-    env: JNIEnv,
+    mut env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
-    address: String,
-    call_id: String,
+    address: JString,
+    call_id: JString,
     data: JByteArray,
 ) {
     let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
@@ -525,6 +523,22 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendAudi
     let data: Vec<u8> = match env.convert_byte_array(data) {
         Ok(bytes) => bytes,
         Err(_) => vec![],
+    };
+
+    let address: String = match env.get_string(&address) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => {
+            log::error!("invalid address");
+            return;
+        }
+    };
+
+    let call_id: String = match env.get_string(&call_id) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => {
+            log::error!("invalid call id");
+            return;
+        }
     };
 
     let _ = lib
