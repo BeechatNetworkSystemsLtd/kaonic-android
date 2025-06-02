@@ -15,7 +15,7 @@ public interface KaonicEventType {
     String CALL_ANSWER = "CallAnswer";
     String CALL_REJECT = "CallReject";
     String CALL_TIMEOUT = "CallTimeout";
-    String[] callEvents = new String[]{CALL_INVOKE, CALL_ANSWER, CALL_REJECT};
+    String[] callEvents = new String[]{CALL_INVOKE, CALL_ANSWER, CALL_REJECT,CALL_TIMEOUT};
 
     /// other
     String CONTACT_FOUND = "ContactFound";
