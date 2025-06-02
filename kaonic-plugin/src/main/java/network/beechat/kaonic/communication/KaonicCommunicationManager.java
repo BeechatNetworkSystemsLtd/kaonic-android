@@ -64,7 +64,7 @@ public class KaonicCommunicationManager {
 
             @Override
             public void onAudioChunkReceived(String address, String callId, byte[] buffer) {
-                onAudioChunkReceived(address, callId, buffer);
+                kaonicOnAudioChunkReceived(address, callId, buffer);
             }
         });
     }
@@ -196,7 +196,7 @@ public class KaonicCommunicationManager {
     }
 
     public void sendCallData(String address, String callId, byte[] buffer) {
-        kaonicLib.feedAudio(address, callId, buffer);
+        kaonicLib.sendCallAudio(address, callId, buffer);
     }
     //endregion
 
@@ -256,8 +256,6 @@ public class KaonicCommunicationManager {
                 case KaonicEventType.CALL_REJECT:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallEventData.class);
                     break;
-                case KaonicEventType.CALL_AUDIO:
-                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallAudioData.class);
             }
             if (kaonicEventData != null) {
                 final KaonicEvent event = new KaonicEvent(eventType);
@@ -340,7 +338,7 @@ public class KaonicCommunicationManager {
         }
     }
 
-    private void onAudioChunkReceived(String address, String callId, byte[] buffer) {
+    private void kaonicOnAudioChunkReceived(String address, String callId, byte[] buffer) {
         eventListener.onEventReceived(new KaonicEvent(KaonicEventType.CALL_AUDIO,
                 new CallAudioData(address, callId, buffer)));
     }

@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity() {
 
     private fun initKaonicService() {
         checkStoragePermission()
-//        callService.initAudio()
+        callService.initAudio()
         KaonicService.init(
             KaonicCommunicationManager(
                 KaonicLib.getInstance(applicationContext),

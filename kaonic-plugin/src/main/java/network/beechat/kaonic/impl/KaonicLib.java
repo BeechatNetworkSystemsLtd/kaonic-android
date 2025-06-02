@@ -109,10 +109,8 @@ public class KaonicLib {
         }
     }
 
-    public void sendCallAudio(String eventJson) {
-        if (eventJson != null) {
-            nativeSendEvent(this.pointer, eventJson);
-        }
+    public void sendCallAudio(String address, String callId, byte[] data) {
+            nativeSendAudio(this.pointer, address,callId,data);
     }
 
     private static native void libraryInit();
