@@ -122,7 +122,7 @@ public class KaonicLib {
 
     private native void nativeConfigure(long ptr, String configJson);
     private native void nativeSendEvent(long ptr, String eventJson);
-    private native void nativeSendAudio(long ptr, byte[] data);
+    private native void nativeSendAudio(long ptr, String address, String callId, byte[] data);
     private native void nativeSendFileChunk(long ptr, String address, String id, byte[] data);
 
     private void receive(String json) {
@@ -141,7 +141,7 @@ public class KaonicLib {
         audioService.stopPlaying();
     }
 
-    public void feedAudio(byte[] buffer) {
+    public void feedAudio(String address, String callId, byte[] buffer) {
         audioService.play(buffer, buffer.length);
     }
 
@@ -173,8 +173,7 @@ public class KaonicLib {
     }
 
     private void onAudioResult(int size, byte[] buffer) {
-        nativeSendAudio(this.pointer, buffer);
+        // nativeSendAudio(this.pointer, buffer);
     }
-
 
 }

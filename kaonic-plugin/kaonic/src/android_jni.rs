@@ -25,7 +25,7 @@ use log::{self, LevelFilter};
 
 use crate::event::Event;
 use crate::messenger::{Messenger, MessengerCommand, Platform};
-use crate::model::{Connection, ContactData, FileChunk, MessengerError};
+use crate::model::{Connection, ContactData, FileChunk, MessengerError, CallAudioData};
 
 #[derive(Clone)]
 struct KaonicJni {
@@ -153,7 +153,7 @@ impl Platform for PlatformJni {
         };
     }
 
-    fn feed_audio(&mut self, audio_data: &[u8]) {
+    fn feed_audio(&mut self, address: &String, call_id: &String, audio_data: &[u8]) {
         let jni = self.jni.lock().expect("jni locked");
 
         let mut env = jni
@@ -168,7 +168,14 @@ impl Platform for PlatformJni {
         env.set_byte_array_region(&byte_array, 0, buffer)
             .expect("byte array with data");
 
-        let arguments = [JValue::Object(&byte_array).as_jni()];
+        let address = env.new_string(address).expect("new address string");
+        let call_id = env.new_string(call_id).expect("new id string");
+
+        let arguments = [
+            JValue::Object(&address).as_jni(),
+            JValue::Object(&call_id).as_jni(),
+            JValue::Object(&byte_array).as_jni(),
+        ];
 
         unsafe {
             env.call_method_unchecked(
@@ -288,7 +295,11 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
             .expect("stop audio method");
 
         let feed_audio_method = env
-            .get_method_id(&class, "feedAudio", "([B)V")
+            .get_method_id(
+                &class,
+                "feedAudio",
+                "(Ljava/lang/String;Ljava/lang/String;[B)V",
+            )
             .expect("feed audio method");
 
         let request_file_chunk_method = env
@@ -443,8 +454,8 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeConfigur
     // Safety: ptr must be a valid pointer created by nativeInit
     let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
 
-    let kaonic_config = parse_json_param::<KaonicConfig>(&mut env, &config_json)
-        .expect("valid kaonic config");
+    let kaonic_config =
+        parse_json_param::<KaonicConfig>(&mut env, &config_json).expect("valid kaonic config");
 
     let _ = lib
         .kaonic_config_send
@@ -503,14 +514,24 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendAudi
     env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
+    address: String,
+    call_id: String,
     data: JByteArray,
 ) {
-    let _lib = unsafe { &mut *(ptr as *mut KaonicLib) };
+    let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
 
-    let _data: Vec<u8> = match env.convert_byte_array(data) {
+    let data: Vec<u8> = match env.convert_byte_array(data) {
         Ok(bytes) => bytes,
         Err(_) => vec![],
     };
+
+    let _ = lib
+        .cmd_send
+        .blocking_send(MessengerCommand::CallAudioData(CallAudioData {
+            address,
+            call_id,
+            data,
+        }));
 }
 
 #[no_mangle]

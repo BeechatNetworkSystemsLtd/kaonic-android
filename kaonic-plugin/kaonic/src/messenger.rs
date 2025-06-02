@@ -123,7 +123,7 @@ pub trait Platform {
     fn send_event(&mut self, event: &Event);
     fn start_audio(&mut self);
     fn stop_audio(&mut self);
-    fn feed_audio(&mut self, audio_data: &[u8]);
+    fn feed_audio(&mut self, address: &String, call_id: &String, audio_data: &[u8]);
     fn request_file_chunk(&mut self, address: &String, file_id: &String, chunk_size: usize);
     fn receive_file_chunk(&mut self, address: &String, file_id: &String, data: &[u8]);
 }
@@ -500,7 +500,7 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                         if let Ok(event) = event {
                             match event {
                                 Event::CallAudioData(call) => {
-                                    handler.lock().await.platform.lock().await.feed_audio(&call.data[..]);
+                                    handler.lock().await.platform.lock().await.feed_audio(&call.address, &call.call_id, &call.data[..]);
                                 },
                                 Event::ChatCreate(_) | Event::Message(_) |
                                 Event::FileStart(_) | Event::FileChunk(_) |
