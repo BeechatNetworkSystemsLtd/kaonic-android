@@ -242,9 +242,15 @@ public class KaonicCommunicationManager {
                     kaonicEventData = objectMapper.readValue(eventData.toString(), MessageFileEvent.class);
                     break;
                 case KaonicEventType.CALL_INVOKE:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallEventData.class);
+                    break;
                 case KaonicEventType.CALL_ANSWER:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), CallEventData.class);
+
+                    break;
                 case KaonicEventType.CALL_REJECT:
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallEventData.class);
+                    kaonicLib.stopAudio();
                     break;
             }
             if (kaonicEventData != null) {

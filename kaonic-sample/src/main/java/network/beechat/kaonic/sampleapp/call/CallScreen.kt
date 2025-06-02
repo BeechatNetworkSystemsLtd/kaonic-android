@@ -21,6 +21,10 @@ fun CallScreen(
 ) {
     val callState = viewModel.callState.collectAsState().value
 
+    if (callState == CallScreenState.idle) {
+        onCallEnd()
+    }
+
     Scaffold { innerPadding ->
         Column(
             modifier = Modifier
@@ -76,7 +80,7 @@ fun CallIncomingView(viewModel: CallViewModel, onCallEnd: () -> Unit) {
         IconButton(
             onClick = {
                 viewModel.rejectCall()
-                onCallEnd()
+//                onCallEnd()
             },
             modifier = Modifier
                 .size(64.dp)
@@ -104,7 +108,7 @@ fun CallOutgoing(viewModel: CallViewModel, onCallEnd: () -> Unit) {
     IconButton(
         onClick = {
             viewModel.rejectCall()
-            onCallEnd()
+//            onCallEnd()
         },
         modifier = Modifier
             .size(64.dp)
@@ -139,7 +143,7 @@ fun CallInProgress(viewModel: CallViewModel, onCallEnd: () -> Unit) {
     IconButton(
         onClick = {
             viewModel.rejectCall()
-            onCallEnd()
+//            onCallEnd()
         },
         modifier = Modifier
             .size(64.dp)

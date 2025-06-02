@@ -27,10 +27,11 @@ public class KaonicLib {
         void onFileChunkRequest(String fileId, int chunkSize);
 
         void onFileChunkReceived(String fileId, byte[] bytes);
+
+        void onAudioChunkReceived(String address, String callId, byte[] buffer);
     }
 
     private static KaonicLib instance;
-    private final AudioService audioService = new AudioService();
 
     private final long pointer;
     private EventListener eventListener;
@@ -38,7 +39,6 @@ public class KaonicLib {
     private KaonicLib(Context context) throws Exception {
 
         pointer = this.nativeInit(context);
-        audioService.setAudioStreamCallback(this::onAudioResult);
 
         Log.i(TAG, "KaonicLib initialized");
     }
@@ -87,7 +87,7 @@ public class KaonicLib {
         return json;
     }
 
-    public void sendConfig(String configJson){
+    public void sendConfig(String configJson) {
         nativeConfigure(this.pointer, configJson);
     }
 
@@ -100,29 +100,39 @@ public class KaonicLib {
     public void sendCallAnswer(String eventJson) {
         if (eventJson != null) {
             nativeSendEvent(this.pointer, eventJson);
-            startAudio();
         }
     }
 
     public void sendCallReject(String eventJson) {
         if (eventJson != null) {
             nativeSendEvent(this.pointer, eventJson);
-            stopAudio();
+        }
+    }
+
+    public void sendCallAudio(String eventJson) {
+        if (eventJson != null) {
+            nativeSendEvent(this.pointer, eventJson);
         }
     }
 
     private static native void libraryInit();
 
     private native long nativeInit(Context context);
+
     private native void nativeDestroy(long ptr);
+
     private native void nativeStart(long ptr, String secret, String contact);
+
     private native void nativeStop(long ptr);
 
     private native String nativeGenerate(long ptr);
 
     private native void nativeConfigure(long ptr, String configJson);
+
     private native void nativeSendEvent(long ptr, String eventJson);
+
     private native void nativeSendAudio(long ptr, String address, String callId, byte[] data);
+
     private native void nativeSendFileChunk(long ptr, String address, String id, byte[] data);
 
     private void receive(String json) {
@@ -131,18 +141,9 @@ public class KaonicLib {
         }
     }
 
-    public void startAudio() {
-        audioService.startPlaying();
-        audioService.startRecording();
-    }
-
-    public void stopAudio() {
-        audioService.stopRecording();
-        audioService.stopPlaying();
-    }
 
     public void feedAudio(String address, String callId, byte[] buffer) {
-        audioService.play(buffer, buffer.length);
+        eventListener.onAudioChunkReceived(address, callId, buffer);
     }
 
     /**
@@ -172,8 +173,5 @@ public class KaonicLib {
         }
     }
 
-    private void onAudioResult(int size, byte[] buffer) {
-        // nativeSendAudio(this.pointer, buffer);
-    }
 
 }

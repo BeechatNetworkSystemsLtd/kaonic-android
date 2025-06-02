@@ -1,8 +1,8 @@
 package network.beechat.kaonic.sampleapp.services.call
 
 import android.content.Context
-import android.media.MediaPlayer
-import android.net.Uri
+import android.media.Ringtone
+import android.media.RingtoneManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -11,10 +11,10 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
+import network.beechat.kaonic.audio.AudioService
 import network.beechat.kaonic.models.KaonicEventType
 import network.beechat.kaonic.models.calls.CallEventData
 import network.beechat.kaonic.sampleapp.services.KaonicService
-import androidx.core.net.toUri
 import java.util.UUID
 
 
@@ -26,8 +26,9 @@ enum class CallScreenState {
 }
 
 class CallService(private val context: Context, scope: CoroutineScope) {
+    private val audioService = AudioService()
     private val scope = CoroutineScope(Dispatchers.Main)
-    private var mediaPlayer: MediaPlayer? = null
+    private var ringtone: Ringtone? = null
 
     private val _navigationEvents = MutableSharedFlow<String>()
     val navigationEvents: SharedFlow<String> = _navigationEvents
@@ -36,9 +37,11 @@ class CallService(private val context: Context, scope: CoroutineScope) {
     val callState: StateFlow<CallScreenState> = _callState
 
     private var _activeCallId: String? = null
-    val activeCallId: String? = _activeCallId
+    val activeCallId: String?
+        get() = _activeCallId
     private var _activeCallAddress: String? = null
-    val activeCallAddress: String? = _activeCallAddress
+    val activeCallAddress: String?
+        get() = _activeCallAddress
 
     init {
         scope.launch {
@@ -61,9 +64,15 @@ class CallService(private val context: Context, scope: CoroutineScope) {
                             val callEventData = event.data as CallEventData
                             handleCallReject(callEventData.callId, callEventData.address)
                         }
+                        KaonicEventType.CALL_AUDIO->{
+
+                            audioService.play(buffer, buffer.size)
+                        }
                     }
                 }
         }
+
+        audioService.setAudioStreamCallback(this::onAudioResult)
     }
 
     fun createCall(address: String) {
@@ -71,7 +80,7 @@ class CallService(private val context: Context, scope: CoroutineScope) {
 
         _activeCallId = UUID.randomUUID().toString()
         _activeCallAddress = address
-        KaonicService.startCall(_activeCallId!!,_activeCallAddress!!)
+        KaonicService.startCall(_activeCallId!!, _activeCallAddress!!)
         scope.launch {
             _callState.emit(CallScreenState.outgoing)
         }
@@ -84,6 +93,7 @@ class CallService(private val context: Context, scope: CoroutineScope) {
         scope.launch {
             _callState.emit(CallScreenState.callInProgress)
             stopRingtone()
+            startAudio()
         }
     }
 
@@ -94,6 +104,7 @@ class CallService(private val context: Context, scope: CoroutineScope) {
         scope.launch {
             _callState.emit(CallScreenState.idle)
             stopRingtone()
+            stopAudio()
         }
     }
 
@@ -106,6 +117,7 @@ class CallService(private val context: Context, scope: CoroutineScope) {
         _activeCallId = callId
         _activeCallAddress = address
         scope.launch {
+            _callState.emit(CallScreenState.incoming)
             _navigationEvents.emit("incomingCall/${callId}/${address}")
             playRingtone()
         }
@@ -116,6 +128,7 @@ class CallService(private val context: Context, scope: CoroutineScope) {
         scope.launch {
             _callState.emit(CallScreenState.idle)
             stopRingtone()
+            stopAudio()
         }
         _activeCallId = null
         _activeCallAddress = null
@@ -126,23 +139,34 @@ class CallService(private val context: Context, scope: CoroutineScope) {
         scope.launch {
             _callState.emit(CallScreenState.callInProgress)
             stopRingtone()
+            startAudio()
         }
     }
 
     private fun playRingtone() {
-        val ringtoneUri = "android.resource://${context.packageName}/raw/ringtone".toUri()
-        mediaPlayer = MediaPlayer.create(context, ringtoneUri)
-        if (mediaPlayer != null) {
-            mediaPlayer?.isLooping = true
-            mediaPlayer?.start()
-        } else {
-            throw IllegalStateException("MediaPlayer initialization failed")
-        }
+        val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        ringtone = RingtoneManager.getRingtone(context, ringtoneUri)
+        ringtone?.play()
     }
 
     private fun stopRingtone() {
-        mediaPlayer?.stop()
-        mediaPlayer?.release()
-        mediaPlayer = null
+        ringtone?.stop()
+        ringtone = null
+    }
+
+
+    private fun onAudioResult(size: Int, buffer: ByteArray) {
+//        nativeSendAudio(this.pointer, buffer)
+    }
+
+
+    private fun startAudio() {
+        audioService.startPlaying()
+        audioService.startRecording()
+    }
+
+    private fun stopAudio() {
+        audioService.stopRecording()
+        audioService.stopPlaying()
     }
 }

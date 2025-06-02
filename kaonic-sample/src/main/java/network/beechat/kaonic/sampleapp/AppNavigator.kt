@@ -13,6 +13,7 @@ import androidx.navigation.navArgument
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import network.beechat.kaonic.sampleapp.call.CallScreen
 import network.beechat.kaonic.sampleapp.call.CallViewModel
 import network.beechat.kaonic.sampleapp.call.CallViewModelFactory
@@ -60,12 +61,15 @@ fun AppNavigator() {
             NodeDetailsScreen(
                 viewModel = viewModel, onBack = { navController.popBackStack() },
                 onCall = {
-                    callService.createCall(address)
-                    if (callService.activeCallId != null && callService.activeCallAddress != null)
-                        navController.navigate(
-                            "outgoingCall/${callService.activeCallId}" +
-                                    "/${callService.activeCallAddress}"
-                        )
+                    CoroutineScope(Dispatchers.Main).launch {
+                        callService.createCall(address)
+
+                        if (callService.activeCallId != null && callService.activeCallAddress != null)
+                            navController.navigate(
+                                "outgoingCall/${callService.activeCallId}" +
+                                        "/${callService.activeCallAddress}"
+                            )
+                    }
                 })
         }
         composable("settings") {
@@ -92,7 +96,9 @@ fun AppNavigator() {
 
             CallScreen(
                 viewModel,
-                onCallEnd = { navController.popBackStack() })
+                onCallEnd = {
+                    navController.popBackStack()
+                })
         }
         composable(
             "outgoingCall/{callId}/{address}",
@@ -112,7 +118,9 @@ fun AppNavigator() {
 
             CallScreen(
                 viewModel,
-                onCallEnd = { navController.popBackStack() })
+                onCallEnd = {
+                    navController.popBackStack()
+                })
         }
     }
 }
