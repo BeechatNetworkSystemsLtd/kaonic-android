@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import network.beechat.kaonic.audio.AudioService
 import network.beechat.kaonic.models.KaonicEventType
+import network.beechat.kaonic.models.calls.CallAudioData
 import network.beechat.kaonic.models.calls.CallEventData
 import network.beechat.kaonic.sampleapp.services.KaonicService
 import java.util.UUID
@@ -26,7 +27,7 @@ enum class CallScreenState {
 }
 
 class CallService(private val context: Context, scope: CoroutineScope) {
-    private val audioService = AudioService()
+    lateinit var audioService: AudioService
     private val scope = CoroutineScope(Dispatchers.Main)
     private var ringtone: Ringtone? = null
 
@@ -64,14 +65,19 @@ class CallService(private val context: Context, scope: CoroutineScope) {
                             val callEventData = event.data as CallEventData
                             handleCallReject(callEventData.callId, callEventData.address)
                         }
-                        KaonicEventType.CALL_AUDIO->{
 
-                            audioService.play(buffer, buffer.size)
+                        KaonicEventType.CALL_AUDIO -> {
+                            val callAudioData = event.data as CallAudioData
+                            audioService.play(callAudioData.bytes, callAudioData.bytes.size)
                         }
                     }
                 }
         }
 
+    }
+
+    fun initAudio() {
+        audioService = AudioService()
         audioService.setAudioStreamCallback(this::onAudioResult)
     }
 
@@ -156,6 +162,9 @@ class CallService(private val context: Context, scope: CoroutineScope) {
 
 
     private fun onAudioResult(size: Int, buffer: ByteArray) {
+        if (_activeCallId == null || _activeCallAddress == null) return
+
+        KaonicService.sendCallAudio(_activeCallId!!, _activeCallAddress!!, buffer)
 //        nativeSendAudio(this.pointer, buffer)
     }
 

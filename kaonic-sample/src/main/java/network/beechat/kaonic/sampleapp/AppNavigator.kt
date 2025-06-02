@@ -30,11 +30,11 @@ import network.beechat.kaonic.sampleapp.settings.SettingsViewModel
 val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
 @Composable
-fun AppNavigator() {
+fun AppNavigator(callS: CallService) {
     val navController = rememberNavController()
     val context = LocalContext.current
     val chatService = remember { ChatService(appScope) }
-    val callService = remember { CallService(context, appScope) }
+    val callService = remember { callS}
 
     LaunchedEffect(Unit) {
         callService.navigationEvents.collect { route ->

@@ -294,6 +294,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
             .get_method_id(&class, "stopAudio", "()V")
             .expect("stop audio method");
 
+log::debug!("DDDDDDDDDDDDDDD");
         let feed_audio_method = env
             .get_method_id(
                 &class,
@@ -302,6 +303,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
             )
             .expect("feed audio method");
 
+log::debug!("EEEEEEEEEEEEEEEEE");
         let request_file_chunk_method = env
             .get_method_id(
                 &class,

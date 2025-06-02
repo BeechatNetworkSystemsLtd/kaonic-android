@@ -70,16 +70,20 @@ object KaonicService : KaonicEventListener {
         kaonicCommunicationHandler.sendFile(filePath, address, chatId)
     }
 
-    fun answerCall(callId: String, address: String){
-        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_ANSWER,  address, callId)
+    fun answerCall(callId: String, address: String) {
+        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_ANSWER, address, callId)
     }
 
-    fun rejectCall(callId: String, address: String){
-        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_REJECT,  address, callId)
+    fun rejectCall(callId: String, address: String) {
+        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_REJECT, address, callId)
     }
 
-    fun startCall(callId: String, address: String){
-        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_INVOKE,  address, callId)
+    fun startCall(callId: String, address: String) {
+        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_INVOKE, address, callId)
+    }
+
+    fun sendCallAudio(callId: String, address: String, buffer: ByteArray) {
+        kaonicCommunicationHandler.sendCallData(address, callId, buffer)
     }
 
     fun sendConfig(
@@ -110,8 +114,10 @@ object KaonicService : KaonicEventListener {
                     if (!contacts.contains(event.data.address))
                         contacts.add(event.data.address)
                 }
-                else->{
-                    _events.emit(event)}
+
+                else -> {
+                    _events.emit(event)
+                }
             }
         }
     }

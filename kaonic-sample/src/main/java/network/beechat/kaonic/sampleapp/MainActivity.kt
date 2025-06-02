@@ -11,6 +11,7 @@ import network.beechat.kaonic.communication.KaonicCommunicationManager
 import network.beechat.kaonic.impl.KaonicLib
 import network.beechat.kaonic.sampleapp.services.KaonicService
 import network.beechat.kaonic.sampleapp.services.SecureStorageHelper
+import network.beechat.kaonic.sampleapp.services.call.CallService
 import network.beechat.kaonic.sampleapp.theme.SampleAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -19,11 +20,14 @@ class MainActivity : ComponentActivity() {
         private const val REQUEST_STORAGE_PERMISSION = 201
     }
 
+    lateinit var callService: CallService
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        callService = CallService(this, appScope)
         setContent {
             SampleAppTheme {
-                AppNavigator()
+                AppNavigator(callService)
             }
         }
 
@@ -89,6 +93,7 @@ class MainActivity : ComponentActivity() {
 
     private fun initKaonicService() {
         checkStoragePermission()
+//        callService.initAudio()
         KaonicService.init(
             KaonicCommunicationManager(
                 KaonicLib.getInstance(applicationContext),
