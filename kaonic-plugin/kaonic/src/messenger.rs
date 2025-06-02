@@ -456,6 +456,9 @@ async fn handle_ack_event<T: Platform + Send + 'static>(
             Event::ChatCreate(_) | Event::Message(_) | Event::FileStart(_) => {
                 handler.platform.lock().await.send_event(&event);
             }
+            Event::CallInvoke(_) | Event::CallAnswer(_) | Event::CallReject(_) => {
+                handler.platform.lock().await.send_event(&event);
+            }
             Event::FileChunk(chunk) => {
                 handler.platform.lock().await.receive_file_chunk(
                     &chunk.address,

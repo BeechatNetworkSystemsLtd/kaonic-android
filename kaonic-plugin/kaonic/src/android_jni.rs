@@ -361,6 +361,21 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendEven
                     .cmd_send
                     .blocking_send(MessengerCommand::ChatCreate(chat));
             }
+            Event::CallInvoke(call) => {
+                let _ = lib
+                    .cmd_send
+                    .blocking_send(MessengerCommand::CallInvoke(call));
+            }
+            Event::CallAnswer(call) => {
+                let _ = lib
+                    .cmd_send
+                    .blocking_send(MessengerCommand::CallAnswer(call));
+            }
+            Event::CallReject(call) => {
+                let _ = lib
+                    .cmd_send
+                    .blocking_send(MessengerCommand::CallReject(call));
+            }
             _ => {}
         }
     }
