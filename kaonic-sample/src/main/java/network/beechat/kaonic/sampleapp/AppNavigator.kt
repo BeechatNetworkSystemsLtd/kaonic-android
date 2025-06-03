@@ -1,7 +1,9 @@
 package network.beechat.kaonic.sampleapp
 
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -23,6 +25,7 @@ import network.beechat.kaonic.sampleapp.nodedetails.NodeDetailsViewModelFactory
 import network.beechat.kaonic.sampleapp.scan.ScanScreen
 import network.beechat.kaonic.sampleapp.scan.ScanScreenViewModel
 import network.beechat.kaonic.sampleapp.services.ChatService
+import network.beechat.kaonic.sampleapp.services.call.CallScreenState
 import network.beechat.kaonic.sampleapp.services.call.CallService
 import network.beechat.kaonic.sampleapp.settings.SettingsScreen
 import network.beechat.kaonic.sampleapp.settings.SettingsViewModel
@@ -32,11 +35,15 @@ val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 @Composable
 fun AppNavigator(callS: CallService) {
     val navController = rememberNavController()
-    val context = LocalContext.current
     val chatService = remember { ChatService(appScope) }
-    val callService = remember { callS}
+    val callService = remember { callS }
 
-    LaunchedEffect(Unit) {
+    val callState = remember { callService.callState }.collectAsState().value
+    if (callState == CallScreenState.finished) {
+        navController.popBackStack()
+    }
+
+    LaunchedEffect(callService) {
         callService.navigationEvents.collect { route ->
             navController.navigate(route)
         }
@@ -64,11 +71,13 @@ fun AppNavigator(callS: CallService) {
                     CoroutineScope(Dispatchers.Main).launch {
                         callService.createCall(address)
 
-                        if (callService.activeCallId != null && callService.activeCallAddress != null)
+                        if (callService.activeCallId != null && callService.activeCallAddress != null) {
                             navController.navigate(
                                 "outgoingCall/${callService.activeCallId}" +
                                         "/${callService.activeCallAddress}"
+
                             )
+                        }
                     }
                 })
         }
@@ -87,18 +96,12 @@ fun AppNavigator(callS: CallService) {
             val viewModel: CallViewModel =
                 viewModel(
                     factory = CallViewModelFactory(
-                        callId,
                         address,
-                        callService,
-                        isIncoming = true
+                        callService
                     )
                 )
 
-            CallScreen(
-                viewModel,
-                onCallEnd = {
-                    navController.popBackStack()
-                })
+            CallScreen(viewModel )
         }
         composable(
             "outgoingCall/{callId}/{address}",
@@ -109,18 +112,12 @@ fun AppNavigator(callS: CallService) {
             val viewModel: CallViewModel =
                 viewModel(
                     factory = CallViewModelFactory(
-                        callId,
                         address,
                         callService,
-                        isIncoming = false
                     )
                 )
 
-            CallScreen(
-                viewModel,
-                onCallEnd = {
-                    navController.popBackStack()
-                })
+            CallScreen(viewModel)
         }
     }
 }

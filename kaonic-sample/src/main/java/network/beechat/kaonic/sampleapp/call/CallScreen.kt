@@ -1,5 +1,6 @@
 package network.beechat.kaonic.sampleapp.call
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +10,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -16,14 +18,9 @@ import network.beechat.kaonic.sampleapp.services.call.CallScreenState
 
 @Composable
 fun CallScreen(
-    viewModel: CallViewModel,
-    onCallEnd: () -> Unit
+    viewModel: CallViewModel
 ) {
-    val callState = viewModel.callState.collectAsState().value
-
-    if (callState == CallScreenState.idle) {
-        onCallEnd()
-    }
+    val callState = remember { viewModel.callState }.collectAsState().value
 
     Scaffold { innerPadding ->
         Column(
@@ -35,11 +32,11 @@ fun CallScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             when (callState) {
-                CallScreenState.incoming -> CallIncomingView(viewModel, onCallEnd)
+                CallScreenState.incoming -> CallIncomingView(viewModel)
 
-                CallScreenState.outgoing -> CallOutgoing(viewModel, onCallEnd)
+                CallScreenState.outgoing -> CallOutgoing(viewModel)
 
-                CallScreenState.callInProgress -> CallInProgress(viewModel, onCallEnd)
+                CallScreenState.callInProgress -> CallInProgress(viewModel)
                 else -> {
 
                 }
@@ -49,7 +46,7 @@ fun CallScreen(
 }
 
 @Composable
-fun CallIncomingView(viewModel: CallViewModel, onCallEnd: () -> Unit) {
+fun CallIncomingView(viewModel: CallViewModel) {
     val address = viewModel.address
 
     Text(
@@ -80,7 +77,6 @@ fun CallIncomingView(viewModel: CallViewModel, onCallEnd: () -> Unit) {
         IconButton(
             onClick = {
                 viewModel.rejectCall()
-//                onCallEnd()
             },
             modifier = Modifier
                 .size(64.dp)
@@ -96,7 +92,7 @@ fun CallIncomingView(viewModel: CallViewModel, onCallEnd: () -> Unit) {
 }
 
 @Composable
-fun CallOutgoing(viewModel: CallViewModel, onCallEnd: () -> Unit) {
+fun CallOutgoing(viewModel: CallViewModel) {
     val address = viewModel.address
 
     Text(
@@ -108,7 +104,6 @@ fun CallOutgoing(viewModel: CallViewModel, onCallEnd: () -> Unit) {
     IconButton(
         onClick = {
             viewModel.rejectCall()
-//            onCallEnd()
         },
         modifier = Modifier
             .size(64.dp)
@@ -123,7 +118,7 @@ fun CallOutgoing(viewModel: CallViewModel, onCallEnd: () -> Unit) {
 }
 
 @Composable
-fun CallInProgress(viewModel: CallViewModel, onCallEnd: () -> Unit) {
+fun CallInProgress(viewModel: CallViewModel) {
     val address = viewModel.address
     val elapsedTime = viewModel.elapsedTime.collectAsState().value
     val formattedTime = viewModel.formatElapsedTime(elapsedTime)
@@ -143,7 +138,6 @@ fun CallInProgress(viewModel: CallViewModel, onCallEnd: () -> Unit) {
     IconButton(
         onClick = {
             viewModel.rejectCall()
-//            onCallEnd()
         },
         modifier = Modifier
             .size(64.dp)

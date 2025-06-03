@@ -254,6 +254,7 @@ public class KaonicCommunicationManager {
                 case KaonicEventType.CALL_INVOKE:
                 case KaonicEventType.CALL_ANSWER:
                 case KaonicEventType.CALL_REJECT:
+                    Log.i("CallScreen","Kaonic onEvent "+ eventType);
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallEventData.class);
                     break;
             }

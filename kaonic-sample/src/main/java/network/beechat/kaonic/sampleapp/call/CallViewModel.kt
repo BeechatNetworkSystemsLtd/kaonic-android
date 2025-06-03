@@ -10,27 +10,31 @@ import network.beechat.kaonic.sampleapp.services.call.CallScreenState
 import network.beechat.kaonic.sampleapp.services.call.CallService
 
 class CallViewModelFactory(
-    private val callId: String, private val address: String,
-    private val callService: CallService, private val isIncoming: Boolean
+    private val address: String,
+    private val callService: CallService
 ) :
     ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(CallViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return CallViewModel(callId, address, callService, isIncoming) as T
+            return CallViewModel(address, callService) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
 
+interface OnCallFinished {
+    fun onEnd()
+}
+
 class CallViewModel(
-    val callId: String, val address: String, private val callService: CallService,
-    isIncoming: Boolean
+    val address: String, private val callService: CallService,
 ) : ViewModel() {
 
-    val callState: StateFlow<CallScreenState> =  callService.callState
+    val callState: StateFlow<CallScreenState> = callService.callState
+    var onCallFinished: OnCallFinished? = null
 
-        private val _elapsedTime = MutableStateFlow(0)
+    private val _elapsedTime = MutableStateFlow(0)
     val elapsedTime: StateFlow<Int> = _elapsedTime
 
     private val scope = CoroutineScope(Dispatchers.Main)

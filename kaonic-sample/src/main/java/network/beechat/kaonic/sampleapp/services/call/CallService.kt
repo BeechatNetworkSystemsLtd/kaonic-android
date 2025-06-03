@@ -3,8 +3,10 @@ package network.beechat.kaonic.sampleapp.services.call
 import android.content.Context
 import android.media.Ringtone
 import android.media.RingtoneManager
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -24,6 +26,7 @@ enum class CallScreenState {
     incoming,
     outgoing,
     callInProgress,
+    finished,
 }
 
 class CallService(private val context: Context, scope: CoroutineScope) {
@@ -108,10 +111,14 @@ class CallService(private val context: Context, scope: CoroutineScope) {
 
         KaonicService.rejectCall(_activeCallId!!, _activeCallAddress!!)
         scope.launch {
+            _callState.emit(CallScreenState.finished)
+            delay(150)
             _callState.emit(CallScreenState.idle)
-            stopRingtone()
-            stopAudio()
         }
+        stopRingtone()
+        stopAudio()
+        _activeCallId = null
+        _activeCallAddress = null
     }
 
     private fun handleCallInvoke(callId: String, address: String) {
@@ -132,10 +139,12 @@ class CallService(private val context: Context, scope: CoroutineScope) {
     private fun handleCallReject(callId: String, address: String) {
         if (callId != _activeCallId) return
         scope.launch {
+            _callState.emit(CallScreenState.finished)
+            delay(150)
             _callState.emit(CallScreenState.idle)
-            stopRingtone()
-            stopAudio()
         }
+        stopRingtone()
+        stopAudio()
         _activeCallId = null
         _activeCallAddress = null
     }

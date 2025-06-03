@@ -50,8 +50,8 @@ object KaonicService : KaonicEventListener {
                 ConnectionContact("Kaonic"), arrayListOf(
                     Connection(
                         ConnectionType
-//                            .TcpClient, ConnectionInfo("192.168.0.230:4242")
-                            .TcpClient, ConnectionInfo("192.168.1.134:4242")
+                            .TcpClient, ConnectionInfo("192.168.0.230:4242")
+//                            .TcpClient, ConnectionInfo("192.168.1.134:4242")
                     )
                 )
             )
