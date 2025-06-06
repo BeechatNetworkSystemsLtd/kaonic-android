@@ -29,10 +29,9 @@ enum class CallScreenState {
     finished,
 }
 
-class CallService(private val context: Context, scope: CoroutineScope) {
+class CallService( scope: CoroutineScope) {
     lateinit var audioService: AudioService
     private val scope = CoroutineScope(Dispatchers.Main)
-    private var ringtone: Ringtone? = null
 
     private val _navigationEvents = MutableSharedFlow<String>()
     val navigationEvents: SharedFlow<String> = _navigationEvents
@@ -79,11 +78,6 @@ class CallService(private val context: Context, scope: CoroutineScope) {
 
     }
 
-    fun initAudio() {
-        audioService = AudioService()
-        audioService.setAudioStreamCallback(this::onAudioResult)
-    }
-
     fun createCall(address: String) {
 //        if (_activeCallId != null) return
 
@@ -101,8 +95,6 @@ class CallService(private val context: Context, scope: CoroutineScope) {
         KaonicService.answerCall(_activeCallId!!, _activeCallAddress!!)
         scope.launch {
             _callState.emit(CallScreenState.callInProgress)
-            stopRingtone()
-            startAudio()
         }
     }
 
@@ -115,24 +107,16 @@ class CallService(private val context: Context, scope: CoroutineScope) {
             delay(150)
             _callState.emit(CallScreenState.idle)
         }
-        stopRingtone()
-        stopAudio()
         _activeCallId = null
         _activeCallAddress = null
     }
 
     private fun handleCallInvoke(callId: String, address: String) {
-        if (_activeCallId != null) {
-            KaonicService.rejectCall(callId, address)
-            return
-        }
-
         _activeCallId = callId
         _activeCallAddress = address
         scope.launch {
             _callState.emit(CallScreenState.incoming)
             _navigationEvents.emit("incomingCall/${callId}/${address}")
-            playRingtone()
         }
     }
 
@@ -143,8 +127,6 @@ class CallService(private val context: Context, scope: CoroutineScope) {
             delay(150)
             _callState.emit(CallScreenState.idle)
         }
-        stopRingtone()
-        stopAudio()
         _activeCallId = null
         _activeCallAddress = null
     }
@@ -153,38 +135,7 @@ class CallService(private val context: Context, scope: CoroutineScope) {
         if (callId != _activeCallId) return
         scope.launch {
             _callState.emit(CallScreenState.callInProgress)
-            stopRingtone()
-            startAudio()
         }
     }
 
-    private fun playRingtone() {
-        val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-        ringtone = RingtoneManager.getRingtone(context, ringtoneUri)
-        ringtone?.play()
-    }
-
-    private fun stopRingtone() {
-        ringtone?.stop()
-        ringtone = null
-    }
-
-
-    private fun onAudioResult(size: Int, buffer: ByteArray) {
-        if (_activeCallId == null || _activeCallAddress == null) return
-
-        KaonicService.sendCallAudio(_activeCallId!!, _activeCallAddress!!, buffer)
-//        nativeSendAudio(this.pointer, buffer)
-    }
-
-
-    private fun startAudio() {
-        audioService.startPlaying()
-        audioService.startRecording()
-    }
-
-    private fun stopAudio() {
-        audioService.stopRecording()
-        audioService.stopPlaying()
-    }
 }

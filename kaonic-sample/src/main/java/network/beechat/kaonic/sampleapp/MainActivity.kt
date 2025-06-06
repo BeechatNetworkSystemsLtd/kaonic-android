@@ -2,6 +2,8 @@ package network.beechat.kaonic.sampleapp
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.Ringtone
+import android.media.RingtoneManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,7 +26,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        callService = CallService(this, appScope)
+        callService = CallService(appScope)
         setContent {
             SampleAppTheme {
                 AppNavigator(callService)
@@ -93,11 +95,15 @@ class MainActivity : ComponentActivity() {
 
     private fun initKaonicService() {
         checkStoragePermission()
-        callService.initAudio()
+
+        val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        val ringtone = RingtoneManager.getRingtone(this, ringtoneUri)
+
         KaonicService.init(
             KaonicCommunicationManager(
                 KaonicLib.getInstance(applicationContext),
-                contentResolver
+                contentResolver,
+                ringtone
             ),
             SecureStorageHelper(applicationContext)
         )

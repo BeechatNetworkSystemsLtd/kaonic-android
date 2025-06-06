@@ -82,10 +82,6 @@ object KaonicService : KaonicEventListener {
         kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_INVOKE, address, callId)
     }
 
-    fun sendCallAudio(callId: String, address: String, buffer: ByteArray) {
-        kaonicCommunicationHandler.sendCallData(address, callId, buffer)
-    }
-
     fun sendConfig(
         mcs: Int,
         optionNumber: Int,

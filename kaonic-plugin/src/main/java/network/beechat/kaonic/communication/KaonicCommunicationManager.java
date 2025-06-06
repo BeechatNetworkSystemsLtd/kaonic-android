@@ -1,6 +1,7 @@
 package network.beechat.kaonic.communication;
 
 import android.content.ContentResolver;
+import android.media.Ringtone;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -18,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import network.beechat.kaonic.audio.AudioStreamCallback;
 import network.beechat.kaonic.impl.KaonicLib;
 import network.beechat.kaonic.models.KaonicEvent;
 import network.beechat.kaonic.models.KaonicEventData;
@@ -40,12 +42,19 @@ public class KaonicCommunicationManager {
     final private Map<String, FileManager> fileReceivers = new HashMap<>();
     final private Map<String, FileManager> fileSenders = new HashMap<>();
     private KaonicEventListener eventListener;
+    private CallHandler callHandler = new CallHandler();
     private String myAddress = "1234567890";
+    private AudioStreamCallback audioStreamCallback = (size, buffer) ->
+            sendCallData(callHandler.getActiveCallAddress(),
+                    callHandler.getActiveCallId(), buffer);
 
 
-    public KaonicCommunicationManager(@NonNull KaonicLib kaonicLib, @NonNull ContentResolver resolver) {
+    public KaonicCommunicationManager(@NonNull KaonicLib kaonicLib, @NonNull ContentResolver resolver,
+                                      @NonNull Ringtone ringtone) {
         this.kaonicLib = kaonicLib;
         this.contentResolver = resolver;
+        callHandler.initHandler(audioStreamCallback, ringtone);
+
         kaonicLib.setEventListener(new KaonicLib.EventListener() {
             @Override
             public void onEventReceived(String jsonData) {
@@ -175,19 +184,14 @@ public class KaonicCommunicationManager {
     //region Call methods
     public void sendCallEvent(@NonNull String callEventType, @NonNull String address, @NonNull String callId) {
         try {
+            KaonicEvent event = new KaonicEvent(callEventType,
+                    new CallEventData(address, callId));
             switch (callEventType) {
                 case KaonicEventType.CALL_INVOKE:
-                    kaonicLib.sendCallInvoke(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.CALL_INVOKE,
-                            new CallEventData(address, callId))));
-                    break;
                 case KaonicEventType.CALL_ANSWER:
-                    kaonicLib.sendCallAnswer(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.CALL_ANSWER,
-                            new CallEventData(address, callId))));
-                    break;
                 case KaonicEventType.CALL_REJECT:
-                    kaonicLib.sendCallReject(objectMapper.writeValueAsString(new KaonicEvent(KaonicEventType.CALL_REJECT,
-                            new CallEventData(address, callId))));
-                    break;
+                    kaonicLib.sendCallEvent(objectMapper.writeValueAsString(event));
+                    callHandler.onCallEventReceived(event);
 
             }
         } catch (JsonProcessingException e) {
@@ -209,7 +213,6 @@ public class KaonicCommunicationManager {
             throw new RuntimeException(e);
         }
     }
-
 
     private void transmitFile(KaonicEvent kaonicEvent) {
         try {
@@ -254,13 +257,13 @@ public class KaonicCommunicationManager {
                 case KaonicEventType.CALL_INVOKE:
                 case KaonicEventType.CALL_ANSWER:
                 case KaonicEventType.CALL_REJECT:
-                    Log.i("CallScreen","Kaonic onEvent "+ eventType);
+                    Log.i("CallScreen", "Kaonic onEvent " + eventType);
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallEventData.class);
+                    callHandler.onCallEventReceived(new KaonicEvent(eventType, kaonicEventData));
                     break;
             }
             if (kaonicEventData != null) {
-                final KaonicEvent event = new KaonicEvent(eventType);
-                event.data = kaonicEventData;
+                final KaonicEvent event = new KaonicEvent(eventType, kaonicEventData);
 
                 if (eventListener != null) {
                     eventListener.onEventReceived(event);
@@ -340,7 +343,6 @@ public class KaonicCommunicationManager {
     }
 
     private void kaonicOnAudioChunkReceived(String address, String callId, byte[] buffer) {
-        eventListener.onEventReceived(new KaonicEvent(KaonicEventType.CALL_AUDIO,
-                new CallAudioData(address, callId, buffer)));
+        callHandler.play(buffer, buffer.length);
     }
 }

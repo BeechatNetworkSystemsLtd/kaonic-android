@@ -23,33 +23,40 @@ class CallViewModelFactory(
     }
 }
 
-interface OnCallFinished {
-    fun onEnd()
-}
-
 class CallViewModel(
     val address: String, private val callService: CallService,
 ) : ViewModel() {
 
     val callState: StateFlow<CallScreenState> = callService.callState
-    var onCallFinished: OnCallFinished? = null
 
     private val _elapsedTime = MutableStateFlow(0)
     val elapsedTime: StateFlow<Int> = _elapsedTime
 
     private val scope = CoroutineScope(Dispatchers.Main)
     private var timerJob: Job? = null
+    init {
+        scope.launch {
+            callService.callState.collect { state ->
+                when (state) {
+                    CallScreenState.callInProgress -> {
+                        startTimer()
+                    }
+                    CallScreenState.finished -> {
+                        stopTimer()
+                    }
+                    else -> {
+                    }
+                }
+            }
+        }
+    }
 
     fun answerCall() {
-        callService.answerCall();
-        scope.launch {
-            startTimer()
-        }
+        callService.answerCall()
     }
 
     fun rejectCall() {
         callService.rejectCall()
-        stopTimer()
     }
 
     @SuppressLint("DefaultLocale")

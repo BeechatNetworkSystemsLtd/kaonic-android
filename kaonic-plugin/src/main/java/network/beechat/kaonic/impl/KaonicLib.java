@@ -91,19 +91,7 @@ public class KaonicLib {
         nativeConfigure(this.pointer, configJson);
     }
 
-    public void sendCallInvoke(String eventJson) {
-        if (eventJson != null) {
-            nativeSendEvent(this.pointer, eventJson);
-        }
-    }
-
-    public void sendCallAnswer(String eventJson) {
-        if (eventJson != null) {
-            nativeSendEvent(this.pointer, eventJson);
-        }
-    }
-
-    public void sendCallReject(String eventJson) {
+    public void sendCallEvent(String eventJson) {
         if (eventJson != null) {
             nativeSendEvent(this.pointer, eventJson);
         }
