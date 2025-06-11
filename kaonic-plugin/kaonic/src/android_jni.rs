@@ -25,7 +25,7 @@ use log::{self, LevelFilter};
 
 use crate::event::Event;
 use crate::messenger::{Messenger, MessengerCommand, Platform};
-use crate::model::{CallAudioData, Connection, ContactData, FileChunk, MessengerError};
+use crate::model::{CallAudioData, Connection, ContactData, FileChunk, MessengerError, Broadcast};
 
 #[derive(Clone)]
 struct KaonicJni {
@@ -599,15 +599,21 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeGenerate
     // Generate new identity
     let identity = PrivateIdentity::new_from_rand(OsRng);
 
-    // TODO: create JSON output to provide generated address hash
-    let _destination = SingleInputDestination::new(
+    let my_address = SingleInputDestination::new(
         identity.clone(),
         Messenger::<PlatformJni>::destination_name(),
-    );
+    )
+    .desc
+    .address_hash
+    .to_hex_string();
 
     let secret = identity.to_hex_string();
 
-    env.new_string(&secret).unwrap().into_raw()
+    let creds = MessengerCreds { secret, my_address };
+
+    let json = serde_json::to_string_pretty(&creds).expect("valid json string");
+
+    env.new_string(&json).unwrap().into_raw()
 }
 
 async fn messenger_task(
