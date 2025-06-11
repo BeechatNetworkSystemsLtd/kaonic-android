@@ -27,6 +27,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         callService = CallService(appScope)
+        secureStorageHelper=SecureStorageHelper(this)
         setContent {
             SampleAppTheme {
                 AppNavigator(callService,secureStorageHelper)
