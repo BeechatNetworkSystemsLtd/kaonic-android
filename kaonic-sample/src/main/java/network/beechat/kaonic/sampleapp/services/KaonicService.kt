@@ -50,12 +50,12 @@ object KaonicService : KaonicEventListener {
                 ConnectionContact("Kaonic"), arrayListOf(
                     Connection(
                         ConnectionType
-                            .KaonicClient, ConnectionInfo("http://192.168.10.1:8080")
+                            .TcpClient, ConnectionInfo("192.168.0.230:4242")
+//                            .TcpClient, ConnectionInfo("192.168.1.134:4242")
                     )
                 )
             )
         )
-        print("")
     }
 
     fun createChat(address: String, chatId: String) {
@@ -72,6 +72,18 @@ object KaonicService : KaonicEventListener {
 
     fun sendBroadcast(id: String, topic: String, bytes: ByteArray) {
         kaonicCommunicationHandler.sendBroadcast(id, topic, bytes)
+    }
+    fun answerCall(callId: String, address: String) {
+        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_ANSWER, address, callId)
+    }
+
+    fun rejectCall(callId: String, address: String) {
+        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_REJECT, address, callId)
+    }
+
+    fun startCall(callId: String, address: String) {
+        kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_INVOKE, address, callId)
+
     }
 
     fun sendConfig(
@@ -98,14 +110,13 @@ object KaonicService : KaonicEventListener {
         CoroutineScope(Dispatchers.Default).launch {
             // Log.i(TAG, "onEventReceived ${event.data.javaClass.name}")
             when (event.type) {
-                KaonicEventType.MESSAGE_TEXT, KaonicEventType.MESSAGE_FILE,
-                KaonicEventType.CHAT_CREATE -> {
-                    _events.emit(event)
-                }
-
                 KaonicEventType.CONTACT_FOUND -> {
                     if (!contacts.contains(event.data.address))
                         contacts.add(event.data.address)
+                }
+
+                else -> {
+                    _events.emit(event)
                 }
             }
         }

@@ -2,6 +2,8 @@ package network.beechat.kaonic.sampleapp
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.Ringtone
+import android.media.RingtoneManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -11,6 +13,7 @@ import network.beechat.kaonic.communication.KaonicCommunicationManager
 import network.beechat.kaonic.impl.KaonicLib
 import network.beechat.kaonic.sampleapp.services.KaonicService
 import network.beechat.kaonic.sampleapp.services.SecureStorageHelper
+import network.beechat.kaonic.sampleapp.services.call.CallService
 import network.beechat.kaonic.sampleapp.theme.SampleAppTheme
 
 class MainActivity : ComponentActivity() {
@@ -18,15 +21,15 @@ class MainActivity : ComponentActivity() {
         private const val REQUEST_RECORD_AUDIO_PERMISSION = 200
         private const val REQUEST_STORAGE_PERMISSION = 201
     }
-
     lateinit var secureStorageHelper: SecureStorageHelper
+    lateinit var callService: CallService
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        secureStorageHelper = SecureStorageHelper(applicationContext)
+        callService = CallService(appScope)
         setContent {
             SampleAppTheme {
-                AppNavigator(secureStorageHelper)
+                AppNavigator(callService,secureStorageHelper)
             }
         }
 
@@ -92,10 +95,15 @@ class MainActivity : ComponentActivity() {
 
     private fun initKaonicService() {
         checkStoragePermission()
+
+        val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
+        val ringtone = RingtoneManager.getRingtone(this, ringtoneUri)
+
         KaonicService.init(
             KaonicCommunicationManager(
                 KaonicLib.getInstance(applicationContext),
-                contentResolver
+                contentResolver,
+                ringtone
             ),
             secureStorageHelper
         )

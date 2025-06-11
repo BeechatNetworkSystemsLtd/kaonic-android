@@ -25,8 +25,8 @@ use crate::{
     cache::CacheSet,
     event::Event,
     model::{
-        Acknowledge, AnnounceData, Broadcast, CallAudioData, ChatCreate, Contact, ContactData,
-        FileChunk, FileStart, Message, MessengerError,
+        Acknowledge, AnnounceData, CallAnswer, CallAudioData, CallInvoke, CallReject, ChatCreate,
+        Contact, ContactData, FileChunk, FileStart, Message, MessengerError,
     },
 };
 
@@ -41,13 +41,12 @@ struct MessengerHandler<T: Platform> {
 
 pub enum MessengerCommand {
     SendMessage(Message),
-    CallInvoke(AddressHash),
-    CallAnswer(AddressHash),
-    CallReject(AddressHash),
+    CallInvoke(CallInvoke),
+    CallAnswer(CallAnswer),
+    CallReject(CallReject),
     CallAudioData(CallAudioData),
     SendFileStart(FileStart),
     SendFileChunk(FileChunk),
-    Broadcast(Broadcast),
     ChatCreate(ChatCreate),
 }
 
@@ -122,12 +121,9 @@ impl<T: Platform + Send + 'static> Messenger<T> {
 
 pub trait Platform {
     fn send_event(&mut self, event: &Event);
-    fn start_audio(&mut self);
-    fn stop_audio(&mut self);
-    fn feed_audio(&mut self, audio_data: &[u8]);
+    fn feed_audio(&mut self, address: &String, call_id: &String, audio_data: &[u8]);
     fn request_file_chunk(&mut self, address: &String, file_id: &String, chunk_size: usize);
     fn receive_file_chunk(&mut self, address: &String, file_id: &String, data: &[u8]);
-    fn receive_broadcast(&mut self, address: &String, id: &String, topic: &String, data: &[u8]);
 }
 
 fn serialize_internal_event(buf: &mut Vec<u8>, event: &Event) -> Result<(), MessengerError> {
@@ -140,6 +136,18 @@ fn serialize_internal_event(buf: &mut Vec<u8>, event: &Event) -> Result<(), Mess
 }
 
 impl<T: Platform> MessengerHandler<T> {
+    /// Send event into input links connected to destination with specified address
+    async fn send_in(&self, address: &AddressHash, event: &Event) {
+        let mut buf = Vec::new();
+
+        if let Ok(_) = serialize_internal_event(&mut buf, event) {
+            self.transport
+                .lock()
+                .await
+                .send_to_in_links(address, &buf)
+                .await;
+        }
+    }
 
     /// Send event into output links connected to destination with specified address
     async fn send_out(&self, address: &AddressHash, event: &Event) {
@@ -150,19 +158,6 @@ impl<T: Platform> MessengerHandler<T> {
                 .lock()
                 .await
                 .send_to_out_links(address, &buf)
-                .await;
-        }
-    }
-
-    /// Send event into all output links
-    async fn send_out_all(&self, event: &Event) {
-        let mut buf = Vec::new();
-
-        if let Ok(_) = serialize_internal_event(&mut buf, event) {
-            self.transport
-                .lock()
-                .await
-                .send_to_all_out_links(&buf)
                 .await;
         }
     }
@@ -311,18 +306,46 @@ async fn handle_commands<T: Platform + Send + 'static>(
             },
             Some(cmd) = cmd_recv.recv() => {
                 match cmd {
-                    MessengerCommand::CallAudioData(_) => {
-                        // handle call
+                    MessengerCommand::CallAudioData(mut call) => {
+                        let address_str = call.address.clone();
+                        let address = AddressHash::new_from_hex_string(&address_str).unwrap();
+
+                        call.address = contact_address.clone();
+
+                        handler.lock().await.send_out(&address, &Event::CallAudioData(call)).await;
                     },
-                    MessengerCommand::CallInvoke(_) => {
+                    MessengerCommand::CallInvoke(mut call) => {
+                        let address_str = call.address.clone();
+                        let call_id = call.call_id.clone();
+                        let address = AddressHash::new_from_hex_string(&address_str).unwrap();
+
+                        log::info!("messenger: call invoke addr:{} call-id:{}", address, call_id);
+
+                        call.address = contact_address.clone();
+
+                        let _ = send_ack_event(&call.id.clone(), Event::CallInvoke(call), &address, handler.clone()).await;
                     },
-                    MessengerCommand::CallAnswer(_) => {
+                    MessengerCommand::CallAnswer(mut call) => {
+                        let address_str = call.address.clone();
+                        let call_id = call.call_id.clone();
+                        let address = AddressHash::new_from_hex_string(&address_str).unwrap();
+
+                        log::info!("messenger: call answer addr:{} call-id:{}", address, call_id);
+
+                        call.address = contact_address.clone();
+
+                        let _ = send_ack_event(&call.id.clone(), Event::CallAnswer(call), &address, handler.clone()).await;
                     },
-                    MessengerCommand::CallReject(_) => {
-                    },
-                    MessengerCommand::Broadcast(mut broadcast) => {
-                        broadcast.address = contact_address.clone();
-                        handler.lock().await.send_out_all(&Event::Broadcast(broadcast)).await;
+                    MessengerCommand::CallReject(mut call) => {
+                        let address_str = call.address.clone();
+                        let call_id = call.call_id.clone();
+                        let address = AddressHash::new_from_hex_string(&address_str).unwrap();
+
+                        log::info!("messenger: call reject addr:{} call-id:{}", address, call_id);
+
+                        call.address = contact_address.clone();
+
+                        let _ = send_ack_event(&call.id.clone(), Event::CallReject(call), &address, handler.clone()).await;
                     },
                     MessengerCommand::SendFileStart(mut file) => {
                         let address_str = file.address.clone();
@@ -431,6 +454,9 @@ async fn handle_ack_event<T: Platform + Send + 'static>(
             Event::ChatCreate(_) | Event::Message(_) | Event::FileStart(_) => {
                 handler.platform.lock().await.send_event(&event);
             }
+            Event::CallInvoke(_) | Event::CallAnswer(_) | Event::CallReject(_) => {
+                handler.platform.lock().await.send_event(&event);
+            }
             Event::FileChunk(chunk) => {
                 handler.platform.lock().await.receive_file_chunk(
                     &chunk.address,
@@ -471,8 +497,12 @@ async fn handle_in_data<T: Platform + Send + 'static>(
 
                         if let Ok(event) = event {
                             match event {
-                                Event::CallAudioData(_) => {},
-                                Event::ChatCreate(_) | Event::Message(_) | Event::FileStart(_) | Event::FileChunk(_)  => {
+                                Event::CallAudioData(call) => {
+                                    handler.lock().await.platform.lock().await.feed_audio(&call.address, &call.call_id, &call.data[..]);
+                                },
+                                Event::ChatCreate(_) | Event::Message(_) |
+                                Event::FileStart(_) | Event::FileChunk(_) |
+                                Event::CallInvoke(_) | Event::CallAnswer(_) | Event::CallReject(_) => {
                                     let mut handler = handler.lock().await;
                                     handle_ack_event(&mut handler, event).await;
                                 },
@@ -481,16 +511,6 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                                 },
                                 Event::ContactFound(_) => {},
                                 Event::ContactConnect(_) => {},
-                                Event::Broadcast(broadcast) => {
-                                    let mut handler = handler.lock().await;
-                                    if handler.known_ids.insert(&broadcast.id) {
-                                        handler.platform.lock().await.receive_broadcast(
-                                            &broadcast.address,
-                                            &broadcast.id,
-                                            &broadcast.topic,
-                                            &broadcast.data);
-                                    }
-                                },
                             }
                         } else if let Err(err) = event {
                             log::error!("messenger: invalid out event {}", err);

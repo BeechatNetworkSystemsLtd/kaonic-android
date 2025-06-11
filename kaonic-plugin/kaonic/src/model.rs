@@ -44,6 +44,9 @@ pub enum AcknowledgeKind {
     FileChunk,
     Message,
     Chat,
+    CallInvoke,
+    CallAnswer,
+    CallReject,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -62,16 +65,34 @@ impl Acknowledge {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct CallAudioData {
+pub struct CallInvoke {
+    /// Unique ID of the message
+    pub id: String,
     pub address: String,
     pub call_id: String,
-    pub data: String,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct CallStart {
-    pub address: String,
+pub struct CallReject {
+    /// Unique ID of the message
+    pub id: String,
     pub call_id: String,
+    pub address: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CallAnswer {
+    /// Unique ID of the message
+    pub id: String,
+    pub call_id: String,
+    pub address: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CallAudioData {
+    pub call_id: String,
+    pub address: String,
+    pub data: Vec<u8>,
 }
 
 #[derive(Serialize, Deserialize)]

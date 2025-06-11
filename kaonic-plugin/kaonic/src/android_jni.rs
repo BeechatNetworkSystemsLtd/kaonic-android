@@ -25,7 +25,7 @@ use log::{self, LevelFilter};
 
 use crate::event::Event;
 use crate::messenger::{Messenger, MessengerCommand, Platform};
-use crate::model::{Broadcast, Connection, ContactData, FileChunk, MessengerError};
+use crate::model::{CallAudioData, Connection, ContactData, FileChunk, MessengerError};
 
 #[derive(Clone)]
 struct KaonicJni {
@@ -33,12 +33,9 @@ struct KaonicJni {
     obj: GlobalRef,
 
     receive_method: JMethodID,
-    start_audio_method: JMethodID,
-    stop_audio_method: JMethodID,
     feed_audio_method: JMethodID,
     request_file_chunk_method: JMethodID,
     receive_file_chunk_method: JMethodID,
-    receive_broadcast_method: JMethodID,
 
     jvm: Arc<JavaVM>,
 }
@@ -47,12 +44,6 @@ struct KaonicJni {
 struct MessengerStartConfig {
     contact: ContactData,
     connections: Vec<Connection>,
-}
-
-#[derive(Serialize, Deserialize)]
-struct MessengerCreds {
-    secret: String,
-    my_address: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -122,45 +113,7 @@ impl Platform for PlatformJni {
         };
     }
 
-    fn start_audio(&mut self) {
-        let jni = self.jni.lock().expect("jni locked");
-
-        let mut env = jni
-            .jvm
-            .attach_current_thread_permanently()
-            .expect("failed to attach thread");
-
-        unsafe {
-            env.call_method_unchecked(
-                &jni.obj,
-                jni.start_audio_method,
-                ReturnType::Primitive(Primitive::Void),
-                &[],
-            )
-            .unwrap()
-        };
-    }
-
-    fn stop_audio(&mut self) {
-        let jni = self.jni.lock().expect("jni locked");
-
-        let mut env = jni
-            .jvm
-            .attach_current_thread_permanently()
-            .expect("failed to attach thread");
-
-        unsafe {
-            env.call_method_unchecked(
-                &jni.obj,
-                jni.stop_audio_method,
-                ReturnType::Primitive(Primitive::Void),
-                &[],
-            )
-            .unwrap()
-        };
-    }
-
-    fn feed_audio(&mut self, audio_data: &[u8]) {
+    fn feed_audio(&mut self, address: &String, call_id: &String, audio_data: &[u8]) {
         let jni = self.jni.lock().expect("jni locked");
 
         let mut env = jni
@@ -175,7 +128,14 @@ impl Platform for PlatformJni {
         env.set_byte_array_region(&byte_array, 0, buffer)
             .expect("byte array with data");
 
-        let arguments = [JValue::Object(&byte_array).as_jni()];
+        let address = env.new_string(address).expect("new address string");
+        let call_id = env.new_string(call_id).expect("new id string");
+
+        let arguments = [
+            JValue::Object(&address).as_jni(),
+            JValue::Object(&call_id).as_jni(),
+            JValue::Object(&byte_array).as_jni(),
+        ];
 
         unsafe {
             env.call_method_unchecked(
@@ -249,42 +209,6 @@ impl Platform for PlatformJni {
             .unwrap()
         };
     }
-
-    fn receive_broadcast(&mut self, address: &String, id: &String, topic: &String, data: &[u8]) {
-        let jni = self.jni.lock().expect("jni locked");
-
-        let mut env = jni
-            .jvm
-            .attach_current_thread_permanently()
-            .expect("failed to attach thread");
-
-        let address = env.new_string(address).expect("new address string");
-        let id = env.new_string(id).expect("new id string");
-        let topic = env.new_string(topic).expect("new topic string");
-
-        let byte_array = env.new_byte_array(data.len() as i32).unwrap();
-        let buffer: &[i8] = unsafe { std::mem::transmute(data) };
-
-        env.set_byte_array_region(&byte_array, 0, buffer)
-            .expect("byte array with data");
-
-        let arguments = [
-            JValue::Object(&address).as_jni(),
-            JValue::Object(&id).as_jni(),
-            JValue::Object(&topic).as_jni(),
-            JValue::Object(&byte_array).as_jni(),
-        ];
-
-        unsafe {
-            env.call_method_unchecked(
-                &jni.obj,
-                jni.receive_broadcast_method,
-                ReturnType::Primitive(Primitive::Void),
-                &arguments[..],
-            )
-            .unwrap()
-        };
-    }
 }
 
 #[no_mangle]
@@ -322,16 +246,12 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
             .get_method_id(&class, "receive", "(Ljava/lang/String;)V")
             .expect("event method");
 
-        let start_audio_method = env
-            .get_method_id(&class, "startAudio", "()V")
-            .expect("start audio method");
-
-        let stop_audio_method = env
-            .get_method_id(&class, "stopAudio", "()V")
-            .expect("stop audio method");
-
         let feed_audio_method = env
-            .get_method_id(&class, "feedAudio", "([B)V")
+            .get_method_id(
+                &class,
+                "feedAudio",
+                "(Ljava/lang/String;Ljava/lang/String;[B)V",
+            )
             .expect("feed audio method");
 
         let request_file_chunk_method = env
@@ -350,26 +270,15 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
             )
             .expect("receive file chunk method");
 
-        let receive_broadcast_method = env
-            .get_method_id(
-                &class,
-                "receiveBroadcast",
-                "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;[B)V",
-            )
-            .expect("receive broadcast method");
-
         KaonicJni {
             _context: env
                 .new_global_ref(context)
                 .expect("Failed to create global ref"),
             obj,
             receive_method,
-            start_audio_method,
-            stop_audio_method,
             feed_audio_method,
             request_file_chunk_method,
             receive_file_chunk_method,
-            receive_broadcast_method,
             jvm,
         }
     };
@@ -413,47 +322,24 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendEven
                     .cmd_send
                     .blocking_send(MessengerCommand::ChatCreate(chat));
             }
+            Event::CallInvoke(call) => {
+                let _ = lib
+                    .cmd_send
+                    .blocking_send(MessengerCommand::CallInvoke(call));
+            }
+            Event::CallAnswer(call) => {
+                let _ = lib
+                    .cmd_send
+                    .blocking_send(MessengerCommand::CallAnswer(call));
+            }
+            Event::CallReject(call) => {
+                let _ = lib
+                    .cmd_send
+                    .blocking_send(MessengerCommand::CallReject(call));
+            }
             _ => {}
         }
     }
-}
-
-#[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendBroadcast(
-    mut env: JNIEnv,
-    _obj: JObject,
-    ptr: jlong,
-    id: JString,
-    topic: JString,
-    data: JByteArray,
-) {
-    let lib = unsafe { &*(ptr as *const KaonicLib) };
-
-    let id: String = match env.get_string(&id) {
-        Ok(jstr) => jstr.into(),
-        Err(_) => "".into(),
-    };
-
-    let topic: String = match env.get_string(&topic) {
-        Ok(jstr) => jstr.into(),
-        Err(_) => "".into(),
-    };
-
-    let data: Vec<u8> = match env.convert_byte_array(data) {
-        Ok(bytes) => bytes,
-        Err(_) => vec![],
-    };
-
-    let broadcast = Broadcast {
-        id,
-        address: "".into(),
-        topic,
-        data,
-    };
-
-    let _ = lib
-        .cmd_send
-        .blocking_send(MessengerCommand::Broadcast(broadcast));
 }
 
 #[no_mangle]
@@ -574,29 +460,44 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStart(
 }
 
 #[no_mangle]
-pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeStop(
-    _env: JNIEnv,
-    _obj: JObject,
-    ptr: jlong,
-) {
-    // Safety: ptr must be a valid pointer created by nativeInit
-    let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
-    lib.cancel.cancel();
-}
-
-#[no_mangle]
 pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendAudio(
-    env: JNIEnv,
+    mut env: JNIEnv,
     _obj: JObject,
     ptr: jlong,
+    address: JString,
+    call_id: JString,
     data: JByteArray,
 ) {
-    let _lib = unsafe { &mut *(ptr as *mut KaonicLib) };
+    let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
 
-    let _data: Vec<u8> = match env.convert_byte_array(data) {
+    let data: Vec<u8> = match env.convert_byte_array(data) {
         Ok(bytes) => bytes,
         Err(_) => vec![],
     };
+
+    let address: String = match env.get_string(&address) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => {
+            log::error!("invalid address");
+            return;
+        }
+    };
+
+    let call_id: String = match env.get_string(&call_id) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => {
+            log::error!("invalid call id");
+            return;
+        }
+    };
+
+    let _ = lib
+        .cmd_send
+        .blocking_send(MessengerCommand::CallAudioData(CallAudioData {
+            address,
+            call_id,
+            data,
+        }));
 }
 
 #[no_mangle]
@@ -608,27 +509,21 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeGenerate
     // Generate new identity
     let identity = PrivateIdentity::new_from_rand(OsRng);
 
-    let my_address = SingleInputDestination::new(
+    // TODO: create JSON output to provide generated address hash
+    let _destination = SingleInputDestination::new(
         identity.clone(),
         Messenger::<PlatformJni>::destination_name(),
-    )
-    .desc
-    .address_hash
-    .to_hex_string();
+    );
 
     let secret = identity.to_hex_string();
 
-    let creds = MessengerCreds { secret, my_address };
-
-    let json = serde_json::to_string_pretty(&creds).expect("valid json string");
-
-    env.new_string(&json).unwrap().into_raw()
+    env.new_string(&secret).unwrap().into_raw()
 }
 
 async fn messenger_task(
     identity: PrivateIdentity,
     mut cmd_rx: tokio::sync::mpsc::Receiver<MessengerCommand>,
-    kaonic_config_rx: tokio::sync::mpsc::Receiver<RadioConfig>,
+    mut kaonic_config_rx: tokio::sync::mpsc::Receiver<RadioConfig>,
     jni: Arc<Mutex<KaonicJni>>,
     config: MessengerStartConfig,
     cancel: CancellationToken,
