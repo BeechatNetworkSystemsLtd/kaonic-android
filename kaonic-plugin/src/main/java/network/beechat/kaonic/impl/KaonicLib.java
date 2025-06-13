@@ -5,6 +5,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 
+import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 
 
@@ -132,13 +133,14 @@ public class KaonicLib {
 
     private native void nativeSendBroadcast(long ptr, String id, String topic, byte[] data);
 
+    @Keep
     private void receive(String json) {
         if (eventListener != null && json != null) {
             eventListener.onEventReceived(json);
         }
     }
 
-
+    @Keep
     public void feedAudio(String address, String callId, byte[] buffer) {
         eventListener.onAudioChunkReceived(address, callId, buffer);
     }
@@ -146,10 +148,12 @@ public class KaonicLib {
     /**
      * Send file data chunk to specified address and file id
      */
+    @Keep
     public void sendFileChunk(String address, String fileId, byte[] data) {
         nativeSendFileChunk(this.pointer, address, fileId, data);
     }
 
+    @Keep
     private void requestFileChunk(String address, String fileId, int chunkSize) {
         if (eventListener != null) {
             // NOTE: onFileChunkRequest should be invoked from different thread
@@ -160,6 +164,7 @@ public class KaonicLib {
         }
     }
 
+    @Keep
     private void receiveFileChunk(String address, String fileId, byte[] data) {
         if (eventListener != null) {
             // NOTE: onFileChunkReceived should be invoked from different thread
@@ -170,6 +175,7 @@ public class KaonicLib {
         }
     }
 
+    @Keep
     private void receiveBroadcast(String address, String id, String topic, byte[] data) {
         if (eventListener != null) {
             // NOTE: onBroadcastReceived should be invoked from different thread
