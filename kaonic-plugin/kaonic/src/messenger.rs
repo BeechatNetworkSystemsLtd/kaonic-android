@@ -237,18 +237,23 @@ async fn handle_announces<T: Platform + Send + 'static>(
                     let destination = announce.destination.lock().await;
 
                     let transport = handler.lock().await.transport.clone();
-                    let link = transport.lock().await.link(destination.desc).await;
 
-                    log::trace!("messenger: announce contact '{}'={} link={}", announce_data.contact.name, destination.desc.address_hash, link.lock().await.id());
+                    // Filter internal destinations
+                    if !transport.lock().await.has_destination(&destination.desc.address_hash).await {
 
-                    let contact = Contact {
-                        address: destination.desc.address_hash.to_hex_string(),
-                        contact: announce_data.contact,
-                    };
+                        let link = transport.lock().await.link(destination.desc).await;
 
-                    let platform = handler.lock().await.platform.clone();
+                        log::trace!("messenger: announce contact '{}'={} link={}", announce_data.contact.name, destination.desc.address_hash, link.lock().await.id());
 
-                    platform.lock().await.send_event(&Event::ContactFound(contact));
+                        let contact = Contact {
+                            address: destination.desc.address_hash.to_hex_string(),
+                            contact: announce_data.contact,
+                        };
+
+                        let platform = handler.lock().await.platform.clone();
+
+                        platform.lock().await.send_event(&Event::ContactFound(contact));
+                    }
                 }
             }
         }
