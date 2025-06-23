@@ -1,12 +1,15 @@
 package network.beechat.kaonic.models.messages;
 
+import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 
 import java.util.UUID;
 
+@Keep
 public class MessageTextEvent extends MessageEvent {
     public String text;
 
+    @Keep
     public MessageTextEvent() {
         super();
     }

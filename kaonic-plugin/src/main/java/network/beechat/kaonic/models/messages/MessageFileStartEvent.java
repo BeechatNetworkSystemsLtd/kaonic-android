@@ -1,5 +1,6 @@
 package network.beechat.kaonic.models.messages;
 
+import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -8,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * THIS IS INTERNAL LIB EVENT
  * YOU WONT RECEIVE IT
  */
+@Keep
 public class MessageFileStartEvent extends MessageEvent {
     @JsonProperty("file_id")
     public final String fileId;
@@ -16,6 +18,7 @@ public class MessageFileStartEvent extends MessageEvent {
     @JsonProperty("file_size")
     public final int fileSize;
 
+    @Keep
     public MessageFileStartEvent() {
         super("", 0, "", "");
         this.fileId = id;

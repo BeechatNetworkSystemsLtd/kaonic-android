@@ -9,6 +9,7 @@ import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 
 
+@Keep
 public class KaonicLib {
     final private String TAG = "KaonicLib";
 

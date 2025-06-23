@@ -1,5 +1,8 @@
 package network.beechat.kaonic.models;
 
+import androidx.annotation.Keep;
+
+@Keep
 public interface KaonicEventType {
     /// messages
     String CHAT_CREATE = "ChatCreate";

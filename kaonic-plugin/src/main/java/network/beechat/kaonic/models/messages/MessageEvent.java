@@ -1,11 +1,13 @@
 package network.beechat.kaonic.models.messages;
 
+import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import network.beechat.kaonic.models.KaonicEventData;
 
+@Keep
 public abstract class MessageEvent extends KaonicEventData {
     public @NonNull String id;
     @JsonProperty("chat_id")

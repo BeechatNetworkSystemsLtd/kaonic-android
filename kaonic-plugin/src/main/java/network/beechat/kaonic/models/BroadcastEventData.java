@@ -1,12 +1,15 @@
 package network.beechat.kaonic.models;
 
+import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 
+@Keep
 public class BroadcastEventData extends KaonicEventData {
     public @NonNull String id;
     public @NonNull String topic;
     public @NonNull byte[] bytes;
 
+    @Keep
     public BroadcastEventData() {
         super();
         id = "";

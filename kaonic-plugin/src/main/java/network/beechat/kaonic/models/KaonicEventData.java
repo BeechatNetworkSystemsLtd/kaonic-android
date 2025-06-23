@@ -1,10 +1,12 @@
 package network.beechat.kaonic.models;
 
+import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+@Keep
 public abstract class KaonicEventData {
     /// from who that event is
     /// if the event is my( my message, etc) - address is mine

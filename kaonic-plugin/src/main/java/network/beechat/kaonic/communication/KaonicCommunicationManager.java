@@ -4,6 +4,7 @@ import android.content.ContentResolver;
 import android.media.Ringtone;
 import android.util.Log;
 
+import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -37,6 +38,7 @@ import network.beechat.kaonic.models.messages.MessageFileStartEvent;
 import network.beechat.kaonic.models.messages.MessageLocationEvent;
 import network.beechat.kaonic.models.messages.MessageTextEvent;
 
+@Keep
 public class KaonicCommunicationManager {
     final private String TAG = "LibCommunicationHandler";
     final private @NonNull KaonicLib kaonicLib;
@@ -100,6 +102,7 @@ public class KaonicCommunicationManager {
         return true;
     }
 
+    @Keep
     public void stop() {
         kaonicLib.stop();
     }
@@ -113,6 +116,7 @@ public class KaonicCommunicationManager {
         }
     }
 
+    @Keep
     public void onDestroy() {
         kaonicLib.removeChannelListener();
     }
@@ -121,6 +125,7 @@ public class KaonicCommunicationManager {
         this.eventListener = eventListener;
     }
 
+    @Keep
     public void removePacketListener() {
         this.eventListener = null;
     }
@@ -279,7 +284,6 @@ public class KaonicCommunicationManager {
                 case KaonicEventType.CALL_INVOKE:
                 case KaonicEventType.CALL_ANSWER:
                 case KaonicEventType.CALL_REJECT:
-                    Log.i("CallScreen", "Kaonic onEvent " + eventType);
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallEventData.class);
                     callHandler.onCallEventReceived(new KaonicEvent(eventType, kaonicEventData));
                     break;
