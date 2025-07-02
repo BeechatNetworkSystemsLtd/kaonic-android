@@ -30,6 +30,8 @@ tokio-util = "0.7.15"
 jni = { version = "0.21.1", optional = true }
 android_log = { version = "0.1.3", optional = true }
 
+audio-codec-algorithms = "0.7.0"
+
 [features]
 android = ["dep:jni", "dep:android_log"]
 

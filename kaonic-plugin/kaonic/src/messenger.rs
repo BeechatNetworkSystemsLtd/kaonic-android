@@ -1,5 +1,6 @@
 use std::{sync::Arc, time::Duration};
 
+use audio_codec_algorithms::encode_alaw;
 use rand_core::OsRng;
 use reticulum::{
     destination::{link::LinkEvent, DestinationName, SingleInputDestination},
@@ -25,8 +26,8 @@ use crate::{
     cache::CacheSet,
     event::Event,
     model::{
-        Acknowledge, AnnounceData, Broadcast, CallAnswer, CallAudioData, CallInvoke, CallReject, ChatCreate,
-        Contact, ContactData, FileChunk, FileStart, Message, MessengerError,
+        Acknowledge, AnnounceData, Broadcast, CallAnswer, CallAudioData, CallInvoke, CallReject,
+        ChatCreate, Contact, ContactData, FileChunk, FileStart, Message, MessengerError,
     },
 };
 
@@ -138,7 +139,6 @@ fn serialize_internal_event(buf: &mut Vec<u8>, event: &Event) -> Result<(), Mess
 }
 
 impl<T: Platform> MessengerHandler<T> {
-
     /// Send event into output links connected to destination with specified address
     async fn send_out(&self, address: &AddressHash, event: &Event) {
         let mut buf = Vec::new();
@@ -307,6 +307,8 @@ async fn handle_commands<T: Platform + Send + 'static>(
         .address_hash
         .to_hex_string();
 
+    let mut audio_buffer = Vec::new();
+
     loop {
         tokio::select! {
             _ = cancel.cancelled() => {
@@ -314,13 +316,26 @@ async fn handle_commands<T: Platform + Send + 'static>(
             },
             Some(cmd) = cmd_recv.recv() => {
                 match cmd {
-                    MessengerCommand::CallAudioData(mut call) => {
+                    MessengerCommand::CallAudioData(call) => {
                         let address_str = call.address.clone();
                         let address = AddressHash::new_from_hex_string(&address_str).unwrap();
 
-                        call.address = contact_address.clone();
+                        let handler = handler.lock().await;
 
-                        handler.lock().await.send_out(&address, &Event::CallAudioData(call)).await;
+                        let audio_data = call.data;
+                        let audio_stream: &[i16] = unsafe { std::mem::transmute(&audio_data[..]) };
+
+                        audio_buffer.resize(audio_stream.len(), 0);
+
+                        for i in 0..audio_buffer.len() {
+                            audio_buffer[i] = encode_alaw(audio_stream[i]);
+                        }
+
+                        handler.send_out(&address, &Event::CallAudioData(CallAudioData{
+                            call_id: call.call_id.clone(),
+                            address: contact_address.clone(),
+                            data: audio_buffer.clone(),
+                        })).await;
                     },
                     MessengerCommand::CallInvoke(mut call) => {
                         let address_str = call.address.clone();
@@ -500,6 +515,9 @@ async fn handle_in_data<T: Platform + Send + 'static>(
 
     let transport = handler.lock().await.transport.clone();
     let mut link_events = transport.lock().await.in_link_events();
+
+    let mut audio_stream = Vec::<i16>::new();
+
     loop {
         tokio::select! {
             Ok(link_event) = link_events.recv() => {
@@ -510,7 +528,18 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                         if let Ok(event) = event {
                             match event {
                                 Event::CallAudioData(call) => {
-                                    handler.lock().await.platform.lock().await.feed_audio(&call.address, &call.call_id, &call.data[..]);
+
+                                    let handler = handler.lock().await;
+
+                                    audio_stream.resize(call.data.len(), 0);
+
+                                    for i in 0..call.data.len() {
+                                        audio_stream[i] = audio_codec_algorithms::decode_alaw(call.data[i]);
+                                    }
+
+                                    let buffer: &[u8] = unsafe { std::mem::transmute(&audio_stream[..]) };
+
+                                    handler.platform.lock().await.feed_audio(&call.address, &call.call_id, &buffer[..]);
                                 },
                                 Event::ChatCreate(_) | Event::Message(_) |
                                 Event::FileStart(_) | Event::FileChunk(_) |
