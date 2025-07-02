@@ -1,5 +1,7 @@
 package network.beechat.kaonic.audio;
 
+import static android.media.AudioManager.STREAM_MUSIC;
+
 import android.annotation.SuppressLint;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
@@ -19,21 +21,24 @@ public class AudioService {
     private final int CHANNEL_OUT = AudioFormat.CHANNEL_OUT_MONO;
     private final int AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
 
+    private final int SAMPLE_BUFFER_SIZE = 512;
+
     private final AudioRecord audioRecord;
     private final AudioTrack audioTrack;
     private AcousticEchoCanceler echoCanceler = null;
-    private final int bufferSize;
     private boolean isRecording = false;
     private boolean isPlaying = false;
-    private CircularBuffer circularBuffer;
+    private final CircularBuffer circularBuffer;
     private Thread recordingThread = null;
     private Thread playingThread = null;
     private AudioStreamCallback audioStreamCallback = null;
 
     public AudioService() {
-        bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_IN, AUDIO_ENCODING);
+        int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_IN, AUDIO_ENCODING);
 
-        circularBuffer = new CircularBuffer(bufferSize * 16);
+        int minOutBufferSize = Math.max(AudioTrack.getMinBufferSize(SAMPLE_RATE,CHANNEL_OUT, AudioFormat.ENCODING_PCM_16BIT), SAMPLE_BUFFER_SIZE);
+
+        circularBuffer = new CircularBuffer(minOutBufferSize * 16);
 
         audioRecord = new AudioRecord.Builder()
                 .setAudioSource(MediaRecorder.AudioSource.MIC)
@@ -42,7 +47,7 @@ public class AudioService {
                         .setEncoding(AUDIO_ENCODING)
                         .setChannelMask(CHANNEL_IN)
                         .build())
-                .setBufferSizeInBytes(bufferSize * 16)
+                .setBufferSizeInBytes(minOutBufferSize)
                 .build();
 
         AudioTrack.Builder audioTrackBuilder = new AudioTrack.Builder()
@@ -55,7 +60,7 @@ public class AudioService {
                         .setEncoding(AUDIO_ENCODING)
                         .setChannelMask(CHANNEL_OUT)
                         .build())
-                .setBufferSizeInBytes(bufferSize * 32)
+                .setBufferSizeInBytes(minOutBufferSize)
                 .setTransferMode(AudioTrack.MODE_STREAM);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -107,7 +112,8 @@ public class AudioService {
     }
 
     public void play(byte[] data, int length) {
-        circularBuffer.write(data, 0, length);
+
+       circularBuffer.write(data, 0, length);
     }
 
     public void startRecording() {
@@ -147,7 +153,7 @@ public class AudioService {
     }
 
     private void writeAudioData() {
-        byte[] audioBuffer = new byte[bufferSize * 2];
+        byte[] audioBuffer = new byte[SAMPLE_BUFFER_SIZE * 3];
 
         while (isPlaying) {
             if (circularBuffer.hasSufficientData(audioBuffer.length)) {
@@ -160,7 +166,7 @@ public class AudioService {
     }
 
     private void readAudioData() {
-        byte[] audioBuffer = new byte[bufferSize];
+        byte[] audioBuffer = new byte[SAMPLE_BUFFER_SIZE];
 
         while (isRecording) {
             int read = audioRecord.read(audioBuffer, 0, audioBuffer.length);
