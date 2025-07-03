@@ -10,7 +10,6 @@ use rand_core::OsRng;
 use reticulum::destination::SingleInputDestination;
 use reticulum::hash::AddressHash;
 use reticulum::identity::PrivateIdentity;
-use reticulum::iface::kaonic::kaonic_grpc::proto::configuration_request::PhyConfig;
 use reticulum::iface::kaonic::kaonic_grpc::KaonicGrpc;
 use reticulum::iface::kaonic::RadioConfig;
 use reticulum::iface::tcp_client::TcpClient;
@@ -25,7 +24,8 @@ use log::{self, LevelFilter};
 
 use crate::event::Event;
 use crate::messenger::{Messenger, MessengerCommand, Platform};
-use crate::model::{CallAudioData, Connection, ContactData, FileChunk, MessengerError, Broadcast};
+use crate::model::{Broadcast, CallAudioData, Connection, ContactData, FileChunk, MessengerError};
+use crate::preset::RADIO_PRESETS;
 
 #[derive(Clone)]
 struct KaonicJni {
@@ -51,35 +51,6 @@ struct MessengerStartConfig {
 struct MessengerCreds {
     secret: String,
     my_address: String,
-}
-
-#[derive(Serialize, Deserialize)]
-struct KaonicConfig {
-    module: i32,
-    freq: u32,
-    channel: u32,
-    channel_spacing: u32,
-    tx_power: u32,
-    mcs: u32,
-    opt: u32,
-}
-
-impl KaonicConfig {
-    pub fn to_radio_config(&self) -> RadioConfig {
-        RadioConfig {
-            module: self.module,
-            freq: self.freq,
-            channel: self.channel,
-            channel_spacing: self.channel_spacing,
-            tx_power: self.tx_power,
-            phy_config: Some(PhyConfig::Ofdm(
-                reticulum::iface::kaonic::kaonic_grpc::proto::RadioPhyConfigOfdm {
-                    mcs: self.mcs,
-                    opt: self.opt,
-                },
-            )),
-        }
-    }
 }
 
 struct KaonicLib {
@@ -494,12 +465,10 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeConfigur
     // Safety: ptr must be a valid pointer created by nativeInit
     let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
 
-    let kaonic_config =
-        parse_json_param::<KaonicConfig>(&mut env, &config_json).expect("valid kaonic config");
+    let radio_config =
+        parse_json_param::<RadioConfig>(&mut env, &config_json).expect("valid kaonic config");
 
-    let _ = lib
-        .kaonic_config_send
-        .blocking_send(kaonic_config.to_radio_config());
+    let _ = lib.kaonic_config_send.blocking_send(radio_config);
 }
 
 #[no_mangle]
@@ -616,10 +585,21 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeGenerate
     env.new_string(&json).unwrap().into_raw()
 }
 
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeGetPresets(
+    env: JNIEnv,
+    _obj: JObject,
+    _ptr: jlong,
+) -> jstring {
+    let json = serde_json::to_string_pretty(&RADIO_PRESETS).expect("valid json string");
+
+    env.new_string(json).unwrap().into_raw()
+}
+
 async fn messenger_task(
     identity: PrivateIdentity,
     mut cmd_rx: tokio::sync::mpsc::Receiver<MessengerCommand>,
-    mut kaonic_config_rx: tokio::sync::mpsc::Receiver<RadioConfig>,
+    kaonic_config_rx: tokio::sync::mpsc::Receiver<RadioConfig>,
     jni: Arc<Mutex<KaonicJni>>,
     config: MessengerStartConfig,
     cancel: CancellationToken,

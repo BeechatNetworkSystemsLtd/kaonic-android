@@ -93,8 +93,11 @@ public class KaonicLib {
     }
 
     public String generateSecret() {
-        String json = nativeGenerate(this.pointer);
-        return json;
+        return nativeGenerate(this.pointer);
+    }
+
+    public String getPresets() {
+        return nativeGetPresets(this.pointer);
     }
 
     public void sendConfig(String configJson) {
@@ -122,6 +125,8 @@ public class KaonicLib {
     private native void nativeStop(long ptr);
 
     private native String nativeGenerate(long ptr);
+
+    private native String nativeGetPresets(long ptr);
 
     private native void nativeConfigure(long ptr, String configJson);
 
