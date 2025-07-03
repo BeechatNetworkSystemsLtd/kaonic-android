@@ -233,27 +233,24 @@ async fn handle_announces<T: Platform + Send + 'static>(
                 let announce_data = Deserialize::deserialize(&mut Deserializer::new(announce.app_data.as_slice()));
 
                 if let Ok(announce_data) = announce_data {
+
                     let announce_data: AnnounceData = announce_data;
                     let destination = announce.destination.lock().await;
 
                     let transport = handler.lock().await.transport.clone();
 
-                    // Filter internal destinations
-                    if !transport.lock().await.has_destination(&destination.desc.address_hash).await {
+                    let link = transport.lock().await.link(destination.desc).await;
 
-                        let link = transport.lock().await.link(destination.desc).await;
+                    log::trace!("messenger: announce contact '{}'={} link={}", announce_data.contact.name, destination.desc.address_hash, link.lock().await.id());
 
-                        log::trace!("messenger: announce contact '{}'={} link={}", announce_data.contact.name, destination.desc.address_hash, link.lock().await.id());
+                    let contact = Contact {
+                        address: destination.desc.address_hash.to_hex_string(),
+                        contact: announce_data.contact,
+                    };
 
-                        let contact = Contact {
-                            address: destination.desc.address_hash.to_hex_string(),
-                            contact: announce_data.contact,
-                        };
+                    let platform = handler.lock().await.platform.clone();
 
-                        let platform = handler.lock().await.platform.clone();
-
-                        platform.lock().await.send_event(&Event::ContactFound(contact));
-                    }
+                    platform.lock().await.send_event(&Event::ContactFound(contact));
                 }
             }
         }
@@ -317,6 +314,7 @@ async fn handle_commands<T: Platform + Send + 'static>(
             Some(cmd) = cmd_recv.recv() => {
                 match cmd {
                     MessengerCommand::CallAudioData(call) => {
+
                         let address_str = call.address.clone();
                         let address = AddressHash::new_from_hex_string(&address_str).unwrap();
 
