@@ -92,6 +92,7 @@ pub struct CallAnswer {
 pub struct CallAudioData {
     pub call_id: String,
     pub address: String,
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
 }
 
@@ -111,6 +112,7 @@ pub struct FileChunk {
     pub id: String,
     pub file_id: String,
     pub chat_id: String,
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
 }
 
@@ -119,6 +121,7 @@ pub struct Broadcast {
     pub id: String,
     pub address: String,
     pub topic: String,
+    #[serde(with = "serde_bytes")]
     pub data: Vec<u8>,
 }
 
