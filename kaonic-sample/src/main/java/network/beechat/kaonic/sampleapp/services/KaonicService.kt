@@ -85,24 +85,8 @@ object KaonicService : KaonicEventListener {
 
     }
 
-    fun sendConfig(
-        mcs: Int,
-        optionNumber: Int,
-        module: Int,
-        frequency: Int,
-        channel: Int,
-        channelSpacing: Int,
-        txPower: Int
-    ) {
-        kaonicCommunicationHandler.sendConfig(
-            mcs,
-            optionNumber,
-            module,
-            frequency,
-            channel,
-            channelSpacing,
-            txPower
-        )
+    fun sendConfig(jsonConfig: String) {
+        kaonicCommunicationHandler.sendConfig(jsonConfig)
     }
 
     override fun onEventReceived(event: KaonicEvent<KaonicEventData>) {

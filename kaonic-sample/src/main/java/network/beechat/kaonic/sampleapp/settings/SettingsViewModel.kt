@@ -13,6 +13,7 @@ import network.beechat.kaonic.sampleapp.nodedetails.NodeDetailsViewModel
 import network.beechat.kaonic.sampleapp.services.ChatService
 import network.beechat.kaonic.sampleapp.services.KaonicService
 import network.beechat.kaonic.sampleapp.services.SecureStorageHelper
+import org.json.JSONObject
 
 
 const val defaultFrequency = "869535"
@@ -35,7 +36,33 @@ data class SettingsState(
     val frequency: String = defaultFrequency,
     val channel: Int = 1,
     val channelSpacing: String = defaultChannelSpacing,
-    val txPower: String = defaultTxPower
+    val txPower: String = defaultTxPower,
+    val bt: Int = 0,
+    val midxs: Int = 0,
+    val midxsBits: Int = 0,
+    val mord: Int = 0,
+    val srate: Int = 0,
+    val pdtm: Int = 0,
+    val rxo: Int = 0,
+    val rxpto: Int = 0,
+    val mse: Int = 0,
+    val fecs: Int = 0,
+    val fecie: Int = 0,
+    val sfd32: Int = 0,
+    val csfd1: Int = 0,
+    val csfd0: Int = 0,
+    val sfd: Int = 0,
+    val dw: Int = 0,
+    val fskpe0: Int = 0,
+    val fskpe1: Int = 0,
+    val fskpe2: Int = 0,
+    val preambleLength: Int = 0,
+    val freqInversion: Boolean = false,
+    val preambleInversion: Boolean = false,
+    val rawbit: Boolean = false,
+    val pe: Boolean = false,
+    val en: Boolean = false,
+    val sftq: Boolean = false
 )
 
 class SettingsViewModel(private val secureStorageHelper: SecureStorageHelper) : ViewModel() {
@@ -69,6 +96,32 @@ class SettingsViewModel(private val secureStorageHelper: SecureStorageHelper) : 
                     channel = values["channel"]!!.toString().toInt(),
                     channelSpacing = values["channelSpacing"]!!.toString(),
                     txPower = values["txPower"]!!.toString(),
+                    bt = values["bt"]!!.toString().toInt(),
+                    midxs = values["midxs"]!!.toString().toInt(),
+                    midxsBits = values["midx"]!!.toString().toInt(),
+                    mord = values["mord"]!!.toString().toInt(),
+                    srate = values["srate"]!!.toString().toInt(),
+                    pdtm = values["pdtm"]!!.toString().toInt(),
+                    rxo = values["rxo"]!!.toString().toInt(),
+                    rxpto = values["rxpto"]!!.toString().toInt(),
+                    mse = values["mse"]!!.toString().toInt(),
+                    fecs = values["fecs"]!!.toString().toInt(),
+                    fecie = values["fecie"]!!.toString().toInt(),
+                    sfd32 = values["sfd32"]!!.toString().toInt(),
+                    csfd1 = values["csfd1"]!!.toString().toInt(),
+                    csfd0 = values["csfd0"]!!.toString().toInt(),
+                    sfd = values["sfd"]!!.toString().toInt(),
+                    dw = values["dw"]!!.toString().toInt(),
+                    fskpe0 = values["fskpe0"]?.toString()?.toInt() ?: 0,
+                    fskpe1 = values["fskpe1"]?.toString()?.toInt() ?: 0,
+                    fskpe2 = values["fskpe2"]?.toString()?.toInt() ?: 0,
+                    preambleLength = values["preambleLength"]?.toString()?.toInt() ?: 0,
+                    freqInversion = values["freqInversion"]?.toString()?.toBoolean() ?: false,
+                    preambleInversion = values["preambleInversion"]?.toString()?.toBoolean() ?: false,
+                    rawbit = values["rawbit"]?.toString()?.toBoolean() ?: false,
+                    pe = values["pe"]?.toString()?.toBoolean() ?: false,
+                    en = values["en"]?.toString()?.toBoolean() ?: false,
+                    sftq = values["sftq"]?.toString()?.toBoolean() ?: false,
                 )
             }
         }
@@ -106,25 +159,47 @@ class SettingsViewModel(private val secureStorageHelper: SecureStorageHelper) : 
         val state = uiState.value
         val values = hashMapOf(
             Pair("mcs", OFDMRate.entries.indexOf(state.mcs)),
-            Pair("optionNumber", OFDMOptions.entries.indexOf(state.optionNumber)),
+            Pair("opt", OFDMOptions.entries.indexOf(state.optionNumber)),
             Pair("module", Module.entries.indexOf(state.module)),
-            Pair("frequency", state.frequency.toIntOrNull() ?: defaultFrequency.toInt()),
+            Pair("freq", state.frequency.toIntOrNull() ?: defaultFrequency.toInt()),
             Pair("channel", state.channel),
             Pair(
-                "channelSpacing",
+                "channel_spacing",
                 state.channelSpacing.toIntOrNull() ?: defaultChannelSpacing.toInt()
             ),
-            Pair("txPower", state.txPower.toIntOrNull() ?: defaultTxPower.toInt()),
+            Pair("tx_power", state.txPower.toIntOrNull() ?: defaultTxPower.toInt()),
+            Pair("bt", state.bt),
+            Pair("midxs", state.midxs),
+            Pair("midx", state.midxsBits),
+            Pair("mord", state.mord),
+            Pair("srate", state.srate),
+            Pair("pdtm", state.pdtm),
+            Pair("rxo", state.rxo),
+            Pair("rxpto", state.rxpto),
+            Pair("mse", state.mse),
+            Pair("fecs", state.fecs),
+            Pair("fecie", state.fecie),
+            Pair("sfd32", state.sfd32),
+            Pair("csfd1", state.csfd1),
+            Pair("csfd0", state.csfd0),
+            Pair("sfd", state.sfd),
+            Pair("dw", state.dw),
+            Pair("fskpe0", state.fskpe0),
+            Pair("fskpe1", state.fskpe1),
+            Pair("fskpe2", state.fskpe2),
+            Pair("preamble_length", state.preambleLength),
+            Pair("freq_inversion", state.freqInversion),
+            Pair("preamble_inversion", state.preambleInversion),
+            Pair("rawbit", state.rawbit),
+            Pair("pe", state.pe),
+            Pair("en", state.en),
+            Pair("sftq", state.sftq),
         )
-        KaonicService.sendConfig(
-            values["mcs"]!!.toInt(),
-            values["optionNumber"]!!.toInt(),
-            values["module"]!!.toInt(),
-            values["frequency"]!!.toInt(),
-            values["channel"]!!.toInt(),
-            values["channelSpacing"]!!.toInt(),
-            values["txPower"]!!.toInt()
-        )
+
+
+        val jsonString = JSONObject(values as Map<*, *>).toString()
+
+        KaonicService.sendConfig(jsonString)
         secureStorageHelper.put(SETTINGS_TAG, ObjectMapper().writeValueAsString(values))
 
     }
