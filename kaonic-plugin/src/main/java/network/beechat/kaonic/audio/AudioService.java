@@ -21,7 +21,7 @@ public class AudioService {
     private final int CHANNEL_OUT = AudioFormat.CHANNEL_OUT_MONO;
     private final int AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
 
-    private final int SAMPLE_BUFFER_SIZE = 512;
+    private final int SAMPLE_BUFFER_SIZE = 256;
 
     private final AudioRecord audioRecord;
     private final AudioTrack audioTrack;
@@ -34,11 +34,9 @@ public class AudioService {
     private AudioStreamCallback audioStreamCallback = null;
 
     public AudioService() {
-        int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_IN, AUDIO_ENCODING);
+        final int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_IN, AUDIO_ENCODING);
 
-        int minOutBufferSize = Math.max(AudioTrack.getMinBufferSize(SAMPLE_RATE,CHANNEL_OUT, AudioFormat.ENCODING_PCM_16BIT), SAMPLE_BUFFER_SIZE);
-
-        circularBuffer = new CircularBuffer(minOutBufferSize * 16);
+        circularBuffer = new CircularBuffer(bufferSize * 48);
 
         audioRecord = new AudioRecord.Builder()
                 .setAudioSource(MediaRecorder.AudioSource.MIC)
@@ -47,7 +45,7 @@ public class AudioService {
                         .setEncoding(AUDIO_ENCODING)
                         .setChannelMask(CHANNEL_IN)
                         .build())
-                .setBufferSizeInBytes(minOutBufferSize)
+                .setBufferSizeInBytes(bufferSize * 32)
                 .build();
 
         AudioTrack.Builder audioTrackBuilder = new AudioTrack.Builder()
@@ -60,7 +58,7 @@ public class AudioService {
                         .setEncoding(AUDIO_ENCODING)
                         .setChannelMask(CHANNEL_OUT)
                         .build())
-                .setBufferSizeInBytes(minOutBufferSize)
+                .setBufferSizeInBytes(bufferSize * 16)
                 .setTransferMode(AudioTrack.MODE_STREAM);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -112,7 +110,6 @@ public class AudioService {
     }
 
     public void play(byte[] data, int length) {
-
        circularBuffer.write(data, 0, length);
     }
 
@@ -153,25 +150,41 @@ public class AudioService {
     }
 
     private void writeAudioData() {
-        byte[] audioBuffer = new byte[SAMPLE_BUFFER_SIZE * 3];
+        final int playback_size = SAMPLE_BUFFER_SIZE * 5;
+        byte[] audioBuffer = new byte[playback_size];
+        short[] audioStream = new short[audioBuffer.length / 2];
 
         while (isPlaying) {
             if (circularBuffer.hasSufficientData(audioBuffer.length)) {
                 int read = circularBuffer.read(audioBuffer, 0, audioBuffer.length);
                 if (read > 0) {
-                    audioTrack.write(audioBuffer, 0, read);
+
+                    for (int i = 0; i < (read / 2); i++) {
+                        int low = audioBuffer[2 * i] & 0xFF;
+                        int high = audioBuffer[2 * i + 1]; // already signed
+                        audioStream[i] = (short) ((high << 8) | low);
+                    }
+
+                    audioTrack.write(audioStream, 0, read);
                 }
             }
         }
     }
 
     private void readAudioData() {
-        byte[] audioBuffer = new byte[SAMPLE_BUFFER_SIZE];
+        byte[] audioBuffer = new byte[SAMPLE_BUFFER_SIZE * 3];
+        short[] audioStream = new short[audioBuffer.length/2];
 
         while (isRecording) {
-            int read = audioRecord.read(audioBuffer, 0, audioBuffer.length);
+            int read = audioRecord.read(audioStream, 0, audioStream.length);
 
             if (read > 0 && audioStreamCallback != null) {
+
+                for (int i = 0; i < read; i++) {
+                    audioBuffer[2 * i]     = (byte) (audioStream[i] & 0xFF);         // low byte
+                    audioBuffer[2 * i + 1] = (byte) ((audioStream[i] >> 8) & 0xFF);  // high byte
+                }
+
                 audioStreamCallback.onResult(read, audioBuffer);
             }
         }
