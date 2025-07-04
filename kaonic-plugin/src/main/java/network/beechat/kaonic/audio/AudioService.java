@@ -152,20 +152,20 @@ public class AudioService {
     private void writeAudioData() {
         final int playback_size = SAMPLE_BUFFER_SIZE * 5;
         byte[] audioBuffer = new byte[playback_size];
-        short[] audioStream = new short[audioBuffer.length / 2];
+//        short[] audioStream = new short[audioBuffer.length / 2];
 
         while (isPlaying) {
             if (circularBuffer.hasSufficientData(audioBuffer.length)) {
                 int read = circularBuffer.read(audioBuffer, 0, audioBuffer.length);
                 if (read > 0) {
 
-                    for (int i = 0; i < (read / 2); i++) {
-                        int low = audioBuffer[2 * i] & 0xFF;
-                        int high = audioBuffer[2 * i + 1]; // already signed
-                        audioStream[i] = (short) ((high << 8) | low);
-                    }
+//                    for (int i = 0; i < (read / 2); i++) {
+//                        int low = audioBuffer[2 * i] & 0xFF;
+//                        int high = audioBuffer[2 * i + 1]; // already signed
+//                        audioStream[i] = (short) ((high << 8) | low);
+//                    }
 
-                    audioTrack.write(audioStream, 0, read);
+                    audioTrack.write(audioBuffer, 0, read);
                 }
             }
         }
@@ -173,17 +173,17 @@ public class AudioService {
 
     private void readAudioData() {
         byte[] audioBuffer = new byte[SAMPLE_BUFFER_SIZE * 3];
-        short[] audioStream = new short[audioBuffer.length/2];
+//        short[] audioStream = new short[audioBuffer.length/2];
 
         while (isRecording) {
-            int read = audioRecord.read(audioStream, 0, audioStream.length);
+            int read = audioRecord.read(audioBuffer, 0, audioBuffer.length);
 
             if (read > 0 && audioStreamCallback != null) {
 
-                for (int i = 0; i < read; i++) {
-                    audioBuffer[2 * i]     = (byte) (audioStream[i] & 0xFF);         // low byte
-                    audioBuffer[2 * i + 1] = (byte) ((audioStream[i] >> 8) & 0xFF);  // high byte
-                }
+//                for (int i = 0; i < read; i++) {
+//                    audioBuffer[2 * i]     = (byte) (audioStream[i] & 0xFF);         // low byte
+//                    audioBuffer[2 * i + 1] = (byte) ((audioStream[i] >> 8) & 0xFF);  // high byte
+//                }
 
                 audioStreamCallback.onResult(read, audioBuffer);
             }
