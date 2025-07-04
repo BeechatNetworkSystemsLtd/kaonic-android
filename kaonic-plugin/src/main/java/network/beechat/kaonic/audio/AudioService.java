@@ -36,7 +36,7 @@ public class AudioService {
     public AudioService() {
         final int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_IN, AUDIO_ENCODING);
 
-        circularBuffer = new CircularBuffer(bufferSize * 48);
+        circularBuffer = new CircularBuffer(bufferSize * 64);
 
         audioRecord = new AudioRecord.Builder()
                 .setAudioSource(MediaRecorder.AudioSource.MIC)
@@ -58,7 +58,7 @@ public class AudioService {
                         .setEncoding(AUDIO_ENCODING)
                         .setChannelMask(CHANNEL_OUT)
                         .build())
-                .setBufferSizeInBytes(bufferSize * 16)
+                .setBufferSizeInBytes(bufferSize * 32)
                 .setTransferMode(AudioTrack.MODE_STREAM);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -150,7 +150,7 @@ public class AudioService {
     }
 
     private void writeAudioData() {
-        final int playback_size = SAMPLE_BUFFER_SIZE * 5;
+        final int playback_size = SAMPLE_BUFFER_SIZE / 2;
         byte[] audioBuffer = new byte[playback_size];
 //        short[] audioStream = new short[audioBuffer.length / 2];
 
