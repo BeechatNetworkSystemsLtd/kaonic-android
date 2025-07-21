@@ -8,7 +8,6 @@ import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -22,16 +21,14 @@ import java.util.Objects;
 import java.util.UUID;
 
 import network.beechat.kaonic.audio.AudioStreamCallback;
+import network.beechat.kaonic.communication.base.KaonicBaseManager;
 import network.beechat.kaonic.impl.KaonicLib;
 import network.beechat.kaonic.models.BroadcastEventData;
 import network.beechat.kaonic.models.KaonicEvent;
 import network.beechat.kaonic.models.KaonicEventData;
 import network.beechat.kaonic.models.KaonicEventType;
 import network.beechat.kaonic.models.ContactFoundEvent;
-import network.beechat.kaonic.models.MessengerCreds;
-import network.beechat.kaonic.models.calls.CallAudioData;
 import network.beechat.kaonic.models.calls.CallEventData;
-import network.beechat.kaonic.models.connection.ConnectionConfig;
 import network.beechat.kaonic.models.messages.ChatCreateEvent;
 import network.beechat.kaonic.models.messages.MessageFileEvent;
 import network.beechat.kaonic.models.messages.MessageFileStartEvent;
@@ -39,11 +36,9 @@ import network.beechat.kaonic.models.messages.MessageLocationEvent;
 import network.beechat.kaonic.models.messages.MessageTextEvent;
 
 @Keep
-public class KaonicCommunicationManager {
+public class KaonicCommunicationManager extends KaonicBaseManager {
     final private String TAG = "LibCommunicationHandler";
-    final private @NonNull KaonicLib kaonicLib;
     final private @NonNull ContentResolver contentResolver;
-    final private ObjectMapper objectMapper = new ObjectMapper();
     final private Map<String, FileManager> fileReceivers = new HashMap<>();
     final private Map<String, FileManager> fileSenders = new HashMap<>();
     private KaonicEventListener eventListener;
@@ -56,7 +51,7 @@ public class KaonicCommunicationManager {
 
     public KaonicCommunicationManager(@NonNull KaonicLib kaonicLib, @NonNull ContentResolver resolver,
                                       @NonNull Ringtone ringtone) {
-        this.kaonicLib = kaonicLib;
+        super(kaonicLib);
         this.contentResolver = resolver;
         callHandler.initHandler(audioStreamCallback, ringtone);
 
@@ -87,33 +82,6 @@ public class KaonicCommunicationManager {
                 kaonicOnAudioChunkReceived(address, callId, buffer);
             }
         });
-    }
-
-    public boolean start(String secret, ConnectionConfig connectionConfig) {
-        try {
-            String json = objectMapper.writeValueAsString(connectionConfig);
-            kaonicLib.start(
-                    secret, json
-            );
-        } catch (JsonProcessingException e) {
-            return false;
-        }
-
-        return true;
-    }
-
-    @Keep
-    public void stop() {
-        kaonicLib.stop();
-    }
-
-    public MessengerCreds generateSecret() {
-        String jsonString = kaonicLib.generateSecret();
-        try {
-            return objectMapper.readValue(jsonString, MessengerCreds.class);
-        } catch (JsonProcessingException e) {
-            return null;
-        }
     }
 
     @Keep
