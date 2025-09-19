@@ -13,6 +13,7 @@ import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBarDefaults
@@ -26,6 +27,7 @@ import network.beechat.kaonic.sampleapp.view.MainTopBar
 @Composable
 fun ScanScreen(
     viewModel: ScanScreenViewModel, onOpenChat: (String) -> Unit,
+    onVideo:()->Unit,
     onOpenSettings: () -> Unit
 ) {
     val contacts = viewModel.contacts
@@ -39,6 +41,13 @@ fun ScanScreen(
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings",
+                            tint = Color.White
+                        )
+                    }
+                    IconButton(onClick = { onVideo() }) {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = "Video",
                             tint = Color.White
                         )
                     }

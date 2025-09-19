@@ -15,6 +15,27 @@ android {
         targetSdk 35
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
+
+        externalNativeBuild {
+            cmake {
+                def gstRoot
+
+                if (project.hasProperty('gstAndroidRoot'))
+                    gstRoot = project.gstAndroidRoot
+                else
+                    gstRoot = System.env.GSTREAMER_ROOT_ANDROID
+
+                if (gstRoot == null)
+                    throw new GradleException('GSTREAMER_ROOT_ANDROID must be set, or "gstAndroidRoot" must be defined in your gradle.properties in the top level directory of the unpacked universal GStreamer Android binaries')
+
+                arguments "-DANDROID_STL=c++_shared", "-DGSTREAMER_ROOT_ANDROID=$gstRoot", "-GNinja"
+
+                targets "kaonic-streamer"
+
+                // All archs except MIPS and MIPS64 are supported
+                abiFilters  'armeabi-v7a', 'arm64-v8a'
+            }
+        }
     }
 
     buildTypes {
@@ -30,6 +51,33 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+
+    externalNativeBuild {
+        cmake {
+            path 'jni/CMakeLists.txt'
+        }
+    }
+
+    buildFeatures {
+        aidl true
+    }
+
+//    sourceSets {
+//        main {
+//            jniLibs.srcDirs = ['gstreamer-1.0-android-arm64/lib']
+//        }
+//    }
+
+//    packagingOptions {
+//        pickFirst '**/*.so'
+//    }
+}
+
+afterEvaluate {
+    if (project.hasProperty('compileDebugJavaWithJavac'))
+        project.compileDebugJavaWithJavac.dependsOn 'externalNativeBuildDebug'
+    if (project.hasProperty('compileReleaseJavaWithJavac'))
+        project.compileReleaseJavaWithJavac.dependsOn 'externalNativeBuildRelease'
 }
 
 cargo {

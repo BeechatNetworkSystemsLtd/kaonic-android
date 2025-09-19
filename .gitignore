@@ -4,6 +4,10 @@
 *.iws
 .idea/
 /build/
+kaonic-plugin/.cxx/*
+kaonic-plugin/gst-android-build
+kaonic-plugin/src/main/assets
+kaonic-plugin/src/org
 
 /local.properties
 /kaonic-plugin/kaonic/target/

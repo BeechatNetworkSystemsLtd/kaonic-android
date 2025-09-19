@@ -55,6 +55,11 @@ dependencies {
     implementation libs.androidx.navigation.compose
     implementation libs.jackson.dataformat.cbor
 
+    implementation "androidx.camera:camera-core:1.2.3"
+    implementation "androidx.camera:camera-camera2:1.2.3"
+    implementation "androidx.camera:camera-lifecycle:1.2.3"
+    implementation "androidx.camera:camera-view:1.2.3"
+
     implementation libs.androidx.material3
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit

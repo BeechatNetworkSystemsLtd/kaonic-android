@@ -1,5 +1,6 @@
 package network.beechat.kaonic.sampleapp
 
+import android.content.Intent
 import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,11 +32,14 @@ import network.beechat.kaonic.sampleapp.services.call.CallService
 import network.beechat.kaonic.sampleapp.settings.SettingsScreen
 import network.beechat.kaonic.sampleapp.settings.SettingsViewModel
 import network.beechat.kaonic.sampleapp.settings.SettingsViewModelFactory
+import network.beechat.kaonic.sampleapp.video.VideoScreen
+import network.beechat.kaonic.sampleapp.video.VideoViewModel
+import network.beechat.kaonic.video.VideoStreamingActivity
 
 val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
 @Composable
-fun AppNavigator(callS: CallService,secureStorageHelper: SecureStorageHelper) {
+fun AppNavigator(callS: CallService, secureStorageHelper: SecureStorageHelper) {
     val navController = rememberNavController()
     val chatService = remember { ChatService(appScope) }
     val callService = remember { callS }
@@ -58,7 +62,15 @@ fun AppNavigator(callS: CallService,secureStorageHelper: SecureStorageHelper) {
                 viewModel = viewModel, onOpenChat = { name ->
                     navController.navigate("nodeDetails/$name")
                 },
-                onOpenSettings = { navController.navigate("settings") })
+                onOpenSettings = { navController.navigate("settings") },
+                onVideo = { navController.navigate("video") })
+        }
+        composable("video") {
+            val context = LocalContext.current
+            LaunchedEffect(Unit) {
+                val intent = Intent(context, VideoStreamingActivity::class.java)
+                context.startActivity(intent)
+            }
         }
         composable(
             "nodeDetails/{address}",
@@ -104,7 +116,7 @@ fun AppNavigator(callS: CallService,secureStorageHelper: SecureStorageHelper) {
                     )
                 )
 
-            CallScreen(viewModel )
+            CallScreen(viewModel)
         }
         composable(
             "outgoingCall/{callId}/{address}",
