@@ -34,6 +34,7 @@ import network.beechat.kaonic.models.messages.MessageFileEvent;
 import network.beechat.kaonic.models.messages.MessageFileStartEvent;
 import network.beechat.kaonic.models.messages.MessageLocationEvent;
 import network.beechat.kaonic.models.messages.MessageTextEvent;
+import network.beechat.kaonic.models.video.VideoFrameReceived;
 
 @Keep
 public class KaonicCommunicationManager extends KaonicBaseManager {
@@ -84,7 +85,7 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
 
             @Override
             public void onVideoChunkReceived(String address, String callId, byte[] buffer) {
-                // TODO: Add video management
+                kaonicOnVideoFrameReceived(address, callId, buffer);
             }
         });
     }
@@ -107,7 +108,7 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
         return myAddress;
     }
 
-    public void sendConfig(String  jsonConfig) {
+    public void sendConfig(String jsonConfig) {
         kaonicLib.sendConfig(jsonConfig);
     }
 
@@ -245,6 +246,9 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
                     kaonicEventData = objectMapper.readValue(eventData.toString(), CallEventData.class);
                     callHandler.onCallEventReceived(new KaonicEvent(eventType, kaonicEventData));
                     break;
+                case KaonicEventType.VIDEO_FRAME_RECEIVED:
+                    kaonicEventData = objectMapper.readValue(eventData.toString(), VideoFrameReceived.class);
+                    break;
             }
             if (kaonicEventData != null) {
                 final KaonicEvent event = new KaonicEvent(eventType, kaonicEventData);
@@ -338,4 +342,14 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
     private void kaonicOnAudioChunkReceived(String address, String callId, byte[] buffer) {
         callHandler.play(buffer, buffer.length);
     }
+
+    private void kaonicOnVideoFrameReceived(String address, String callId, byte[] buffer) {
+        Log.i(TAG, "OnVideoFrameReceived " + address + " " + address + " " + callId + " buffer[" + buffer.length + "]");
+        KaonicEvent<VideoFrameReceived> kaonicEvent = new KaonicEvent<>(KaonicEventType.VIDEO_FRAME_RECEIVED,
+                new VideoFrameReceived(address, callId, buffer));
+        if (eventListener != null) {
+            eventListener.onEventReceived(kaonicEvent);
+        }
+    }
+
 }

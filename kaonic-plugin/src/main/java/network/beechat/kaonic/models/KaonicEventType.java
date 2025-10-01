@@ -22,6 +22,9 @@ public interface KaonicEventType {
     String[] callEvents = new String[]{CALL_INVOKE, CALL_ANSWER,
             CALL_REJECT, CALL_TIMEOUT, CALL_AUDIO};
 
+    /// video
+    String VIDEO_FRAME_RECEIVED = "VideoFrameReceived";
+
     /// other
     String CONTACT_FOUND = "ContactFound";
     String BROADCAST = "Broadcast";
