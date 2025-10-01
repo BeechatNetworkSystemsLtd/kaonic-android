@@ -23,9 +23,11 @@ public class VideoStreamingService {
     private MediaCodec encoder;
     private Surface inputSurface;
     private boolean isStreaming = false;
+    private String address;
+    private String callId;
 
     public interface ChunkSender {
-        void sendChunk(byte[] chunk);
+        void sendChunk(String address, String callId, byte[] chunk);
     }
 
     private final ChunkSender sender;
@@ -35,63 +37,125 @@ public class VideoStreamingService {
         this.sender = sender;
     }
 
-    public Surface start() throws Exception {
-        MediaFormat format = MediaFormat.createVideoFormat("video/avc", WIDTH, HEIGHT);
-        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-        format.setInteger(MediaFormat.KEY_BIT_RATE, BITRATE);
-        format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAMERATE);
-        format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+    public Surface start(String address, String callId) throws Exception {
+        // Clean up any existing resources first
+//        stop();
+        
+        this.address = address;
+        this.callId = callId;
+        
+        try {
+            MediaFormat format = MediaFormat.createVideoFormat("video/avc", WIDTH, HEIGHT);
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, BITRATE);
+            format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAMERATE);
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
 
-        encoder = MediaCodec.createEncoderByType("video/avc");
-        encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
-        inputSurface = encoder.createInputSurface();
-        encoder.start();
+            encoder = MediaCodec.createEncoderByType("video/avc");
+            encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            inputSurface = encoder.createInputSurface();
+            encoder.start();
 
-        isStreaming = true;
-        new Thread(this::encodeLoop).start();
+            isStreaming = true;
+            new Thread(this::encodeLoop).start();
 
-        return inputSurface;
+            return inputSurface;
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Clean up on error
+            stop();
+            throw new Exception("Failed to start video streaming: " + e.getMessage(), e);
+        }
     }
 
     public void stop() {
         isStreaming = false;
-        if (encoder != null) {
-            encoder.stop();
-            encoder.release();
+        
+        // Clean up input surface first
+        if (inputSurface != null) {
+            try {
+                inputSurface.release();
+            } catch (Exception e) {
+                System.err.println("Error releasing input surface: " + e.getMessage());
+            } finally {
+                inputSurface = null;
+            }
         }
+        
+        // Clean up encoder
+        if (encoder != null) {
+            try {
+                encoder.stop();
+            } catch (Exception e) {
+                System.err.println("Error stopping encoder: " + e.getMessage());
+            }
+            
+            try {
+                encoder.release();
+            } catch (Exception e) {
+                System.err.println("Error releasing encoder: " + e.getMessage());
+            } finally {
+                encoder = null;
+            }
+        }
+        
+        // Clear state
+        address = null;
+        callId = null;
     }
 
     private void encodeLoop() {
         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
 
-        while (isStreaming) {
-            int outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 10000);
-            if (outputIndex >= 0) {
-                ByteBuffer encodedData = encoder.getOutputBuffer(outputIndex);
-                if (encodedData != null && bufferInfo.size > 0) {
-                    byte[] frame = new byte[bufferInfo.size];
-                    encodedData.position(bufferInfo.offset);
-                    encodedData.get(frame);
+        while (isStreaming && encoder != null) {
+            try {
+                int outputIndex = encoder.dequeueOutputBuffer(bufferInfo, 1000000);
+                if (outputIndex >= 0) {
+                    ByteBuffer encodedData = encoder.getOutputBuffer(outputIndex);
+                    if (encodedData != null && bufferInfo.size > 0) {
+                        byte[] frame = new byte[bufferInfo.size];
+                        encodedData.position(bufferInfo.offset);
+                        encodedData.get(frame);
 
-                    List<byte[]> tsPackets = tsMuxer.mux(frame, bufferInfo.presentationTimeUs);
-                    sendPacketsAsChunks(tsPackets);
+                        List<byte[]> tsPackets = tsMuxer.mux(frame, bufferInfo.presentationTimeUs);
+                        sendPacketsAsChunks(tsPackets);
+                    }
+                    encoder.releaseOutputBuffer(outputIndex, false);
+                } else if (outputIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    // Output format changed - this is expected during initialization
+                    MediaFormat newFormat = encoder.getOutputFormat();
+                    System.out.println("Encoder output format changed: " + newFormat);
+                } else if (outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                    // No output available yet - this means camera isn't feeding data to surface
+                    try {
+                        Thread.sleep(10); // Small delay to avoid busy waiting
+                    } catch (InterruptedException e) {
+                        break;
+                    }
                 }
-                encoder.releaseOutputBuffer(outputIndex, false);
+            } catch (IllegalStateException e) {
+                System.err.println("Encoder error in encode loop: " + e.getMessage());
+                break;
+            } catch (Exception e) {
+                System.err.println("Unexpected error in encode loop: " + e.getMessage());
+                e.printStackTrace();
+                break;
             }
         }
+        System.out.println("Encode loop finished");
     }
 
     private void sendPacketsAsChunks(List<byte[]> tsPackets) {
         ByteArrayOutputStream chunk = new ByteArrayOutputStream();
         for (byte[] pkt : tsPackets) {
             if (chunk.size() + TS_PACKET_SIZE > MAX_CHUNK_SIZE) {
-                sender.sendChunk(chunk.toByteArray());
+                sender.sendChunk(address, callId, chunk.toByteArray());
                 chunk.reset();
             }
             chunk.write(pkt, 0, pkt.length);
         }
         if (chunk.size() > 0) {
-            sender.sendChunk(chunk.toByteArray());
+            sender.sendChunk(address, callId, chunk.toByteArray());
         }
     }
 

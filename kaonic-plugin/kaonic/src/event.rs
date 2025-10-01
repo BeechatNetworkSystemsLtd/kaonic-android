@@ -2,7 +2,7 @@ use reticulum::hash::AddressHash;
 use serde::{Deserialize, Serialize};
 
 use crate::model::{
-    Acknowledge, AcknowledgeKind, Broadcast, CallAnswer, CallAudioData, CallInvoke, CallReject, ChatCreate,
+    Acknowledge, AcknowledgeKind, Broadcast, CallAnswer, CallVideoData, CallAudioData, CallInvoke, CallReject, ChatCreate,
     Contact, ContactConnect, FileChunk, FileStart, Message,
 };
 

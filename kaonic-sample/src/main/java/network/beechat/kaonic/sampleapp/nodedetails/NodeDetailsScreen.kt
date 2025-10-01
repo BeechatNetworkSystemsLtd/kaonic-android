@@ -3,6 +3,7 @@ package network.beechat.kaonic.sampleapp.nodedetails
 import android.app.DownloadManager
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -10,6 +11,7 @@ import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -29,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -58,12 +61,25 @@ import androidx.core.net.toUri
 fun NodeDetailsScreen(
     viewModel: NodeDetailsViewModel,
     onBack: () -> Unit,
-    onCall: () -> Unit
+    onCall: () -> Unit,
 ) {
     val messages by viewModel.getMessages(viewModel.nodeAddress)
         .collectAsState(initial = emptyList())
 
     var messageText by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    
+    // Camera permission launcher
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (granted) {
+                viewModel.startStopVideoStream()
+            } else {
+                Toast.makeText(context, "Camera permission is required for video streaming", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
 
     Scaffold(
         topBar = {
@@ -78,6 +94,20 @@ fun NodeDetailsScreen(
                     IconButton(onClick = onCall) {
                         Icon(
                             imageVector = Icons.Default.Call,
+                            contentDescription = "Call"
+                        )
+                    }
+                    IconButton(onClick = {
+                        // Check camera permission before starting video stream
+                        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) 
+                            == PackageManager.PERMISSION_GRANTED) {
+                            viewModel.startStopVideoStream()
+                        } else {
+                            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                        }
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.Email,
                             contentDescription = "Call"
                         )
                     }
@@ -159,14 +189,14 @@ fun MessageItem(message: KaonicEvent<MessageEvent>) {
                 is MessageFileEvent -> {
                     Column(
                         modifier = Modifier.clickable {
-                            val intent= Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(
-                                        data.path!!.toUri(),
-                                        context.contentResolver.getType(data.path!!.toUri())
-                                    )
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                                context.startActivity(intent)
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(
+                                    data.path!!.toUri(),
+                                    context.contentResolver.getType(data.path!!.toUri())
+                                )
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(intent)
                             try {
                                 context.startActivity(intent)
                             } catch (e: ActivityNotFoundException) {

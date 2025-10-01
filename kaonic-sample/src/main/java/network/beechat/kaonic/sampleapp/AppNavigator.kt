@@ -25,12 +25,14 @@ import network.beechat.kaonic.sampleapp.nodedetails.NodeDetailsViewModelFactory
 import network.beechat.kaonic.sampleapp.scan.ScanScreen
 import network.beechat.kaonic.sampleapp.scan.ScanScreenViewModel
 import network.beechat.kaonic.sampleapp.services.ChatService
+import network.beechat.kaonic.sampleapp.services.KaonicService
 import network.beechat.kaonic.sampleapp.services.SecureStorageHelper
 import network.beechat.kaonic.sampleapp.services.call.CallScreenState
 import network.beechat.kaonic.sampleapp.services.call.CallService
 import network.beechat.kaonic.sampleapp.settings.SettingsScreen
 import network.beechat.kaonic.sampleapp.settings.SettingsViewModel
 import network.beechat.kaonic.sampleapp.settings.SettingsViewModelFactory
+import network.beechat.kaonic.sampleapp.video.CameraPreviewComposable
 
 val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -58,7 +60,8 @@ fun AppNavigator(callS: CallService,secureStorageHelper: SecureStorageHelper) {
                 viewModel = viewModel, onOpenChat = { name ->
                     navController.navigate("nodeDetails/$name")
                 },
-                onOpenSettings = { navController.navigate("settings") })
+//                onOpenSettings = { navController.navigate("video") })
+            onOpenSettings = { KaonicService.startVideoStream("","")})
         }
         composable(
             "nodeDetails/{address}",
@@ -82,6 +85,9 @@ fun AppNavigator(callS: CallService,secureStorageHelper: SecureStorageHelper) {
                         }
                     }
                 })
+        }
+        composable("video") {
+            CameraPreviewComposable()
         }
         composable("settings") {
             val viewModel: SettingsViewModel =

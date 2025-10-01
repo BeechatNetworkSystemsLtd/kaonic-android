@@ -135,9 +135,9 @@ impl Platform for PlatformJni {
             .attach_current_thread_permanently()
             .expect("failed to attach thread");
 
-        let byte_array = env.new_byte_array(audio_data.len() as i32).unwrap();
+        let byte_array = env.new_byte_array(video_data.len() as i32).unwrap();
 
-        let buffer: &[i8] = unsafe { std::mem::transmute(audio_data) };
+        let buffer: &[i8] = unsafe { std::mem::transmute(video_data) };
 
         env.set_byte_array_region(&byte_array, 0, buffer)
             .expect("byte array with data");

@@ -72,6 +72,7 @@ object KaonicService : KaonicEventListener {
     fun sendBroadcast(id: String, topic: String, bytes: ByteArray) {
         kaonicCommunicationHandler.sendBroadcast(id, topic, bytes)
     }
+
     fun answerCall(callId: String, address: String) {
         kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_ANSWER, address, callId)
     }
@@ -82,7 +83,14 @@ object KaonicService : KaonicEventListener {
 
     fun startCall(callId: String, address: String) {
         kaonicCommunicationHandler.sendCallEvent(KaonicEventType.CALL_INVOKE, address, callId)
+    }
 
+    fun startVideoStream(callId: String, address: String) {
+        kaonicCommunicationHandler.startVideoStream(address, callId)
+    }
+
+    fun stopVideoStream() {
+        kaonicCommunicationHandler.stopVideoStream()
     }
 
     fun sendConfig(jsonConfig: String) {

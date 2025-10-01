@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
             KaonicCommunicationManager(
                 KaonicLib.getInstance(applicationContext),
                 contentResolver,
-                ringtone
+                ringtone, this
             ),
             secureStorageHelper
         )

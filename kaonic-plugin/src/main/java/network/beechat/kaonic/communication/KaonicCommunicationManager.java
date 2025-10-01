@@ -1,6 +1,7 @@
 package network.beechat.kaonic.communication;
 
 import android.content.ContentResolver;
+import android.content.Context;
 import android.media.Ringtone;
 import android.util.Log;
 
@@ -35,6 +36,7 @@ import network.beechat.kaonic.models.messages.MessageFileStartEvent;
 import network.beechat.kaonic.models.messages.MessageLocationEvent;
 import network.beechat.kaonic.models.messages.MessageTextEvent;
 import network.beechat.kaonic.models.video.VideoFrameReceived;
+import network.beechat.kaonic.video.CameraStreamer;
 
 @Keep
 public class KaonicCommunicationManager extends KaonicBaseManager {
@@ -44,6 +46,8 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
     final private Map<String, FileManager> fileSenders = new HashMap<>();
     private KaonicEventListener eventListener;
     private CallHandler callHandler = new CallHandler();
+    private CameraStreamer cameraStreamer;
+
     private String myAddress = "1234567890";
     private AudioStreamCallback audioStreamCallback = (size, buffer) ->
             sendCallData(callHandler.getActiveCallAddress(),
@@ -51,10 +55,11 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
 
 
     public KaonicCommunicationManager(@NonNull KaonicLib kaonicLib, @NonNull ContentResolver resolver,
-                                      @NonNull Ringtone ringtone) {
+                                      @NonNull Ringtone ringtone, Context context) {
         super(kaonicLib);
         this.contentResolver = resolver;
         callHandler.initHandler(audioStreamCallback, ringtone);
+        cameraStreamer = new CameraStreamer(context, kaonicLib::sendCallVideo);
 
         kaonicLib.setEventListener(new KaonicLib.EventListener() {
             @Override
@@ -183,6 +188,16 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
 
     public void sendCallData(String address, String callId, byte[] buffer) {
         kaonicLib.sendCallAudio(address, callId, buffer);
+    }
+    //endregion
+
+    //region video methods
+    public void startVideoStream(String address, String callId) {
+        cameraStreamer.start(address, callId);
+    }
+
+    public void stopVideoStream() {
+        cameraStreamer.stop();
     }
     //endregion
 
