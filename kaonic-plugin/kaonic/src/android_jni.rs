@@ -24,7 +24,7 @@ use log::{self, LevelFilter};
 
 use crate::event::Event;
 use crate::messenger::{Messenger, MessengerCommand, Platform};
-use crate::model::{Broadcast, CallAudioData, Connection, ContactData, FileChunk, MessengerError};
+use crate::model::{Broadcast, CallVideoData, CallAudioData, Connection, ContactData, FileChunk, MessengerError};
 use crate::preset::RADIO_PRESETS;
 
 #[derive(Clone)]
@@ -34,6 +34,7 @@ struct KaonicJni {
 
     receive_method: JMethodID,
     feed_audio_method: JMethodID,
+    feed_video_method: JMethodID,
     request_file_chunk_method: JMethodID,
     receive_file_chunk_method: JMethodID,
     receive_broadcast_method: JMethodID,
@@ -119,6 +120,41 @@ impl Platform for PlatformJni {
             env.call_method_unchecked(
                 &jni.obj,
                 jni.feed_audio_method,
+                ReturnType::Primitive(Primitive::Void),
+                &arguments[..],
+            )
+            .unwrap()
+        };
+    }
+
+    fn feed_video(&mut self, address: &String, call_id: &String, video_data: &[u8]) {
+        let jni = self.jni.lock().expect("jni locked");
+
+        let mut env = jni
+            .jvm
+            .attach_current_thread_permanently()
+            .expect("failed to attach thread");
+
+        let byte_array = env.new_byte_array(audio_data.len() as i32).unwrap();
+
+        let buffer: &[i8] = unsafe { std::mem::transmute(audio_data) };
+
+        env.set_byte_array_region(&byte_array, 0, buffer)
+            .expect("byte array with data");
+
+        let address = env.new_string(address).expect("new address string");
+        let call_id = env.new_string(call_id).expect("new id string");
+
+        let arguments = [
+            JValue::Object(&address).as_jni(),
+            JValue::Object(&call_id).as_jni(),
+            JValue::Object(&byte_array).as_jni(),
+        ];
+
+        unsafe {
+            env.call_method_unchecked(
+                &jni.obj,
+                jni.feed_video_method,
                 ReturnType::Primitive(Primitive::Void),
                 &arguments[..],
             )
@@ -268,6 +304,14 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
             )
             .expect("feed audio method");
 
+        let feed_video_method = env
+            .get_method_id(
+                &class,
+                "feedVideo",
+                "(Ljava/lang/String;Ljava/lang/String;[B)V",
+            )
+            .expect("feed audio method");
+
         let request_file_chunk_method = env
             .get_method_id(
                 &class,
@@ -299,6 +343,7 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeInit(
             obj,
             receive_method,
             feed_audio_method,
+            feed_video_method,
             request_file_chunk_method,
             receive_file_chunk_method,
             receive_broadcast_method,
@@ -553,6 +598,47 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendAudi
     let _ = lib
         .cmd_send
         .blocking_send(MessengerCommand::CallAudioData(CallAudioData {
+            address,
+            call_id,
+            data,
+        }));
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendVideo(
+    mut env: JNIEnv,
+    _obj: JObject,
+    ptr: jlong,
+    address: JString,
+    call_id: JString,
+    data: JByteArray,
+) {
+    let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
+
+    let data: Vec<u8> = match env.convert_byte_array(data) {
+        Ok(bytes) => bytes,
+        Err(_) => vec![],
+    };
+
+    let address: String = match env.get_string(&address) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => {
+            log::error!("invalid address");
+            return;
+        }
+    };
+
+    let call_id: String = match env.get_string(&call_id) {
+        Ok(jstr) => jstr.into(),
+        Err(_) => {
+            log::error!("invalid call id");
+            return;
+        }
+    };
+
+    let _ = lib
+        .cmd_send
+        .blocking_send(MessengerCommand::CallVideoData(CallVideoData {
             address,
             call_id,
             data,

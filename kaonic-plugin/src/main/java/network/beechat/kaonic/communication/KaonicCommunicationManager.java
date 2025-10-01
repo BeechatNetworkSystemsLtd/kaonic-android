@@ -81,6 +81,11 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
             public void onAudioChunkReceived(String address, String callId, byte[] buffer) {
                 kaonicOnAudioChunkReceived(address, callId, buffer);
             }
+
+            @Override
+            public void onVideoChunkReceived(String address, String callId, byte[] buffer) {
+                // TODO: Add video management
+            }
         });
     }
 

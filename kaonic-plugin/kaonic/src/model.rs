@@ -97,6 +97,14 @@ pub struct CallAudioData {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct CallVideoData {
+    pub call_id: String,
+    pub address: String,
+    #[serde(with = "serde_bytes")]
+    pub data: Vec<u8>,
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct FileStart {
     pub address: String,
     pub id: String,

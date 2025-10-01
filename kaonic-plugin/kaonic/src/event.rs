@@ -21,6 +21,7 @@ pub enum Event {
     CallAnswer(CallAnswer),
     CallReject(CallReject),
     CallAudioData(CallAudioData),
+    CallVideoData(CallVideoData),
 }
 
 impl Event {
@@ -38,6 +39,7 @@ impl Event {
             Event::CallAnswer(call) => call.id.clone(),
             Event::CallReject(call) => call.id.clone(),
             Event::CallAudioData(call) => call.call_id.clone(),
+            Event::CallVideoData(call) => call.call_id.clone(),
         }
     }
 
@@ -49,6 +51,7 @@ impl Event {
             Event::FileChunk(_) => AcknowledgeKind::FileChunk,
             Event::ContactFound(_) => AcknowledgeKind::Generic,
             Event::CallAudioData(_) => AcknowledgeKind::Generic,
+            Event::CallVideoData(_) => AcknowledgeKind::Generic,
             Event::ContactConnect(_) => AcknowledgeKind::Generic,
             Event::Broadcast(_) => AcknowledgeKind::Generic,
             Event::CallInvoke(_) => AcknowledgeKind::CallInvoke,
@@ -69,6 +72,9 @@ impl Event {
             }
             Event::CallAudioData(call_audio_data) => {
                 call_audio_data.address = address;
+            }
+            Event::CallVideoData(call_video_data) => {
+                call_video_data.address = address;
             }
             Event::FileStart(file_start) => {
                 file_start.address = address;
@@ -112,7 +118,10 @@ impl Event {
             Event::CallReject(call) => AddressHash::new_from_hex_string(&call.address),
             Event::CallAudioData(audio_data) => {
                 AddressHash::new_from_hex_string(&audio_data.address)
-            }
+            },
+            Event::CallVideoData(video_data) => {
+                AddressHash::new_from_hex_string(&video_data.address)
+            },
             Event::Acknowledge(_) => Ok(AddressHash::new_empty()),
         }
         .unwrap_or(AddressHash::new_empty())

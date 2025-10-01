@@ -29,6 +29,8 @@ public class KaonicLib {
                                  @NonNull String topic, @NonNull byte[] bytes);
 
         void onAudioChunkReceived(String address, String callId, byte[] buffer);
+
+        void onVideoChunkReceived(String address, String callId, byte[] buffer);
     }
 
     private static KaonicLib instance;
@@ -114,6 +116,10 @@ public class KaonicLib {
             nativeSendAudio(this.pointer, address,callId,data);
     }
 
+    public void sendCallVideo(String address, String callId, byte[] data) {
+            nativeSendVideo(this.pointer, address,callId,data);
+    }
+
     private static native void libraryInit();
 
     private native long nativeInit(Context context);
@@ -134,6 +140,7 @@ public class KaonicLib {
 
     private native void nativeSendAudio(long ptr, String address, String callId, byte[] data);
 
+    private native void nativeSendVideo(long ptr, String address, String callId, byte[] data);
 
     private native void nativeSendFileChunk(long ptr, String address, String id, byte[] data);
 
@@ -149,6 +156,11 @@ public class KaonicLib {
     @Keep
     public void feedAudio(String address, String callId, byte[] buffer) {
         eventListener.onAudioChunkReceived(address, callId, buffer);
+    }
+
+    @Keep
+    public void feedVideo(String address, String callId, byte[] buffer) {
+        eventListener.onVideoChunkReceived(address, callId, buffer);
     }
 
     /**

@@ -26,7 +26,7 @@ use crate::{
     cache::CacheSet,
     event::Event,
     model::{
-        Acknowledge, AnnounceData, Broadcast, CallAnswer, CallAudioData, CallInvoke, CallReject,
+        Acknowledge, AnnounceData, Broadcast, CallAnswer, CallVideoData, CallAudioData, CallInvoke, CallReject,
         ChatCreate, Contact, ContactData, FileChunk, FileStart, Message, MessengerError,
     },
 };
@@ -46,6 +46,7 @@ pub enum MessengerCommand {
     CallAnswer(CallAnswer),
     CallReject(CallReject),
     CallAudioData(CallAudioData),
+    CallVideoData(CallVideoData),
     SendFileStart(FileStart),
     SendFileChunk(FileChunk),
     Broadcast(Broadcast),
@@ -124,6 +125,7 @@ impl<T: Platform + Send + 'static> Messenger<T> {
 pub trait Platform {
     fn send_event(&mut self, event: &Event);
     fn feed_audio(&mut self, address: &String, call_id: &String, audio_data: &[u8]);
+    fn feed_video(&mut self, address: &String, call_id: &String, video_data: &[u8]);
     fn request_file_chunk(&mut self, address: &String, file_id: &String, chunk_size: usize);
     fn receive_file_chunk(&mut self, address: &String, file_id: &String, data: &[u8]);
     fn receive_broadcast(&mut self, address: &String, id: &String, topic: &String, data: &[u8]);
@@ -335,6 +337,19 @@ async fn handle_commands<T: Platform + Send + 'static>(
                             data: audio_buffer.clone(),
                         })).await;
                     },
+                    MessengerCommand::CallVideoData(call) => {
+
+                        let address_str = call.address.clone();
+                        let address = AddressHash::new_from_hex_string(&address_str).unwrap();
+
+                        let handler = handler.lock().await;
+
+                        handler.send_out(&address, &Event::CallVideoData(CallVideoData{
+                            call_id: call.call_id.clone(),
+                            address: contact_address.clone(),
+                            data: call.data,
+                        })).await;
+                    },
                     MessengerCommand::CallInvoke(mut call) => {
                         let address_str = call.address.clone();
                         let call_id = call.call_id.clone();
@@ -538,6 +553,10 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                                     let buffer: &[u8] = unsafe { std::mem::transmute(&audio_stream[..]) };
 
                                     handler.platform.lock().await.feed_audio(&call.address, &call.call_id, &buffer[..]);
+                                },
+                                Event::CallVideoData(call) => {
+                                    let handler = handler.lock().await;
+                                    handler.platform.lock().await.feed_video(&call.address, &call.call_id, &call.data[..]);
                                 },
                                 Event::ChatCreate(_) | Event::Message(_) |
                                 Event::FileStart(_) | Event::FileChunk(_) |
