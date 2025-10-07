@@ -36,7 +36,7 @@ import network.beechat.kaonic.models.messages.MessageFileStartEvent;
 import network.beechat.kaonic.models.messages.MessageLocationEvent;
 import network.beechat.kaonic.models.messages.MessageTextEvent;
 import network.beechat.kaonic.models.video.VideoFrameReceived;
-import network.beechat.kaonic.video.CameraStreamer;
+import network.beechat.kaonic.video.CameraRecorder;
 
 @Keep
 public class KaonicCommunicationManager extends KaonicBaseManager {
@@ -46,7 +46,7 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
     final private Map<String, FileManager> fileSenders = new HashMap<>();
     private KaonicEventListener eventListener;
     private CallHandler callHandler = new CallHandler();
-    private CameraStreamer cameraStreamer;
+    private CameraRecorder cameraRecorder;
 
     private String myAddress = "1234567890";
     private AudioStreamCallback audioStreamCallback = (size, buffer) ->
@@ -59,7 +59,7 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
         super(kaonicLib);
         this.contentResolver = resolver;
         callHandler.initHandler(audioStreamCallback, ringtone);
-        cameraStreamer = new CameraStreamer(context, kaonicLib::sendCallVideo);
+        cameraRecorder = new CameraRecorder(context, this::onVideoFrameReceived);
 
         kaonicLib.setEventListener(new KaonicLib.EventListener() {
             @Override
@@ -193,11 +193,11 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
 
     //region video methods
     public void startVideoStream(String address, String callId) {
-        cameraStreamer.start(address, callId);
+        cameraRecorder.startRecording(address, callId);
     }
 
     public void stopVideoStream() {
-        cameraStreamer.stop();
+        cameraRecorder.stopRecording();
     }
     //endregion
 
@@ -365,6 +365,10 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
         if (eventListener != null) {
             eventListener.onEventReceived(kaonicEvent);
         }
+    }
+
+    private void onVideoFrameReceived(String address, String callId, byte[] data) {
+        kaonicLib.sendCallVideo(address, callId, data);
     }
 
 }

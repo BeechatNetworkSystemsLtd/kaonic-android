@@ -60,8 +60,8 @@ fun AppNavigator(callS: CallService,secureStorageHelper: SecureStorageHelper) {
                 viewModel = viewModel, onOpenChat = { name ->
                     navController.navigate("nodeDetails/$name")
                 },
-//                onOpenSettings = { navController.navigate("video") })
-            onOpenSettings = { KaonicService.startVideoStream("","")})
+                onOpenSettings = { navController.navigate("video") })
+//            onOpenSettings = { KaonicService.startVideoStream("","")})
         }
         composable(
             "nodeDetails/{address}",
