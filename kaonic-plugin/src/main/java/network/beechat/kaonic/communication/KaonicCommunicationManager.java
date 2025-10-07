@@ -368,6 +368,7 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
     }
 
     private void onVideoFrameReceived(String address, String callId, byte[] data) {
+
         kaonicLib.sendCallVideo(address, callId, data);
     }
 

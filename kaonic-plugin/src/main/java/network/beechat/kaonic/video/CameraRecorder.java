@@ -4,6 +4,7 @@ import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
+import android.util.Log;
 import android.util.Size;
 
 import androidx.camera.core.CameraSelector;
@@ -167,8 +168,10 @@ public class CameraRecorder {
     }
 
     public void stopRecording() {
-        encoder.stop();
-        encoder.release();
+        if (encoder != null) {
+            encoder.stop();
+            encoder.release();
+        }
         address = "";
         callId = "";
     }

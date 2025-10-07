@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -62,21 +63,26 @@ fun NodeDetailsScreen(
     viewModel: NodeDetailsViewModel,
     onBack: () -> Unit,
     onCall: () -> Unit,
+    onVideoStream: (String) -> Unit,
 ) {
     val messages by viewModel.getMessages(viewModel.nodeAddress)
         .collectAsState(initial = emptyList())
 
     var messageText by remember { mutableStateOf("") }
     val context = LocalContext.current
-    
+
     // Camera permission launcher
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { granted ->
             if (granted) {
-                viewModel.startStopVideoStream()
+                viewModel.startVideoStream()
             } else {
-                Toast.makeText(context, "Camera permission is required for video streaming", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "Camera permission is required for video streaming",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
     )
@@ -97,20 +103,32 @@ fun NodeDetailsScreen(
                             contentDescription = "Call"
                         )
                     }
-                    IconButton(onClick = {
-                        // Check camera permission before starting video stream
-                        if (ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) 
-                            == PackageManager.PERMISSION_GRANTED) {
-                            viewModel.startStopVideoStream()
-                        } else {
-                            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
-                        }
-                    }) {
+                    IconButton(onClick = { onVideoStream(viewModel.nodeAddress) }) {
                         Icon(
-                            imageVector = Icons.Default.Email,
-                            contentDescription = "Call"
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Video"
                         )
                     }
+                    Switch(
+                        checked = viewModel.videoStreamingActive,
+                        onCheckedChange = { isChecked ->
+                            // Check camera permission before starting video stream
+                            if (!isChecked || ContextCompat.checkSelfPermission(
+                                    context,
+                                    android.Manifest.permission.CAMERA
+                                )
+                                == PackageManager.PERMISSION_GRANTED
+                            ) {
+                                if (isChecked) {
+                                    viewModel.startVideoStream()
+                                } else {
+                                    viewModel.stopVideoStream()
+                                }
+                            } else {
+                                cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                            }
+                        }
+                    )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer

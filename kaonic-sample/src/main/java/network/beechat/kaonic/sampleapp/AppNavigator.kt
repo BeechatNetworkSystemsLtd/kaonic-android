@@ -22,11 +22,15 @@ import network.beechat.kaonic.sampleapp.call.CallViewModelFactory
 import network.beechat.kaonic.sampleapp.nodedetails.NodeDetailsScreen
 import network.beechat.kaonic.sampleapp.nodedetails.NodeDetailsViewModel
 import network.beechat.kaonic.sampleapp.nodedetails.NodeDetailsViewModelFactory
+import network.beechat.kaonic.sampleapp.nodedetails.video.VideoStreamViewModel
+import network.beechat.kaonic.sampleapp.nodedetails.video.VideoStreamViewModelFactory
+import network.beechat.kaonic.sampleapp.nodedetails.video.VideoStreamingScreen
 import network.beechat.kaonic.sampleapp.scan.ScanScreen
 import network.beechat.kaonic.sampleapp.scan.ScanScreenViewModel
 import network.beechat.kaonic.sampleapp.services.ChatService
 import network.beechat.kaonic.sampleapp.services.KaonicService
 import network.beechat.kaonic.sampleapp.services.SecureStorageHelper
+import network.beechat.kaonic.sampleapp.services.VideoStreamingService
 import network.beechat.kaonic.sampleapp.services.call.CallScreenState
 import network.beechat.kaonic.sampleapp.services.call.CallService
 import network.beechat.kaonic.sampleapp.settings.SettingsScreen
@@ -37,9 +41,10 @@ import network.beechat.kaonic.sampleapp.video.CameraPreviewComposable
 val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
 @Composable
-fun AppNavigator(callS: CallService,secureStorageHelper: SecureStorageHelper) {
+fun AppNavigator(callS: CallService, secureStorageHelper: SecureStorageHelper) {
     val navController = rememberNavController()
     val chatService = remember { ChatService(appScope) }
+    val videoService = remember { VideoStreamingService() }
     val callService = remember { callS }
 
     val callState = remember { callService.callState }.collectAsState().value
@@ -61,7 +66,6 @@ fun AppNavigator(callS: CallService,secureStorageHelper: SecureStorageHelper) {
                     navController.navigate("nodeDetails/$name")
                 },
                 onOpenSettings = { navController.navigate("video") })
-//            onOpenSettings = { KaonicService.startVideoStream("","")})
         }
         composable(
             "nodeDetails/{address}",
@@ -69,7 +73,7 @@ fun AppNavigator(callS: CallService,secureStorageHelper: SecureStorageHelper) {
         ) { backStackEntry ->
             val address = backStackEntry.arguments?.getString("address") ?: "Unknown"
             val viewModel: NodeDetailsViewModel =
-                viewModel(factory = NodeDetailsViewModelFactory(address, chatService))
+                viewModel(factory = NodeDetailsViewModelFactory(address, chatService, videoService))
             NodeDetailsScreen(
                 viewModel = viewModel, onBack = { navController.popBackStack() },
                 onCall = {
@@ -83,6 +87,14 @@ fun AppNavigator(callS: CallService,secureStorageHelper: SecureStorageHelper) {
 
                             )
                         }
+                    }
+                },
+                onVideoStream = {
+                    CoroutineScope(Dispatchers.Main).launch {
+                        navController.navigate(
+                            "videoStream/$it"
+
+                        )
                     }
                 })
         }
@@ -110,7 +122,24 @@ fun AppNavigator(callS: CallService,secureStorageHelper: SecureStorageHelper) {
                     )
                 )
 
-            CallScreen(viewModel )
+            CallScreen(viewModel)
+        }
+        composable(
+            "videoStream/{address}",
+            arguments = listOf(navArgument("address") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val callId = backStackEntry.arguments?.getString("callId") ?: ""
+            val address = backStackEntry.arguments?.getString("address") ?: "Unknown"
+            val viewModel: VideoStreamViewModel =
+                viewModel(
+                    factory = VideoStreamViewModelFactory(
+                        address,
+                        callId,
+                        videoService
+                    )
+                )
+
+            VideoStreamingScreen(viewModel, onBack = { navController.popBackStack() })
         }
         composable(
             "outgoingCall/{callId}/{address}",

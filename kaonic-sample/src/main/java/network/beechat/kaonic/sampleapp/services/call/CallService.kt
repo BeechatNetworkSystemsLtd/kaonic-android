@@ -1,9 +1,5 @@
 package network.beechat.kaonic.sampleapp.services.call
 
-import android.content.Context
-import android.media.Ringtone
-import android.media.RingtoneManager
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
