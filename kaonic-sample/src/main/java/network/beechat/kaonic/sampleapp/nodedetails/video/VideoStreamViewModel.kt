@@ -6,10 +6,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
-import network.beechat.kaonic.sampleapp.nodedetails.NodeDetailsViewModel
-import network.beechat.kaonic.sampleapp.services.ChatService
 import network.beechat.kaonic.sampleapp.services.VideoStreamingService
+import network.beechat.kaonic.video.MpegTsDecoder
 import network.beechat.kaonic.video.VideoStreamDecoder
+
 
 class VideoStreamViewModelFactory(
     private val address: String,
@@ -27,6 +27,7 @@ class VideoStreamViewModel(
     private val videoStreamingService: VideoStreamingService
 ) : ViewModel() {
     private val videoDecoder = VideoStreamDecoder()
+    var decoder: MpegTsDecoder? = null
 
     init {
         videoStreamingService.startListenVideoStreamForAddress(address, callId)
@@ -34,24 +35,20 @@ class VideoStreamViewModel(
         // Listen to video frames and decode them
         viewModelScope.launch {
             videoStreamingService.framesFlow.collect { frameData ->
-                val bufferInfo = MediaCodec.BufferInfo().apply {
-                    offset = 0
-                    size = frameData.size
-                    presentationTimeUs = System.nanoTime() / 1000 // Convert to microseconds
-                    flags = 0 // You might need to set appropriate flags based on frame type
-                }
-                videoDecoder.decodeFrame(frameData)
+
+                decoder?.onPacketReceived(frameData);
             }
         }
     }
 
     fun startStream(surface: Surface) {
-        videoDecoder.startDecode(surface)
+        decoder = MpegTsDecoder(surface, 640, 480)
     }
 
     private fun stopStream() {
-        videoDecoder.stopDecode()
-        videoStreamingService.stopListenVideoStream()
+        decoder?.stop()
+//        videoDecoder.stopDecode()
+//        videoStreamingService.stopListenVideoStream()
     }
 
     override fun onCleared() {

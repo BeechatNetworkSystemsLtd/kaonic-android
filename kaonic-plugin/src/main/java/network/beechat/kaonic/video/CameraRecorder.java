@@ -4,7 +4,6 @@ import android.content.Context;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
-import android.util.Log;
 import android.util.Size;
 
 import androidx.camera.core.CameraSelector;
@@ -31,11 +30,13 @@ public class CameraRecorder {
     private final VideoStreamListener videoStreamListener;
     private String address;
     private String callId;
+    private TSMuxer tsMuxerOld;
 
     public CameraRecorder(Context context, VideoStreamListener videoStreamListener) {
         this.context = context;
         this.executor = ContextCompat.getMainExecutor(context);
         this.videoStreamListener = videoStreamListener;
+        tsMuxerOld = new TSMuxer(tsPacket -> videoStreamListener.onFrameReceived(address, callId, tsPacket));
     }
 
     public void startRecording(String address, String callId) {
@@ -121,8 +122,10 @@ public class CameraRecorder {
                 if (outBuffer != null && bufferInfo.size > 0) {
                     byte[] data = new byte[bufferInfo.size];
                     outBuffer.get(data);
-
-                    videoStreamListener.onFrameReceived(address, callId, data);
+                    long pts = (System.nanoTime() / 1000) * 90 / 1000;
+                    long dts = pts;
+                    tsMuxerOld.muxNALUnit(data, pts, dts);
+//                    videoStreamListener.onFrameReceived(address, callId, data);
                 }
                 encoder.releaseOutputBuffer(outputIndex, false);
             } else {
