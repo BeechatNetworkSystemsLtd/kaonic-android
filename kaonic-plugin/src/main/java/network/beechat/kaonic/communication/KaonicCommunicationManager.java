@@ -13,7 +13,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -47,6 +49,9 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
     private KaonicEventListener eventListener;
     private CallHandler callHandler = new CallHandler();
     private CameraRecorder cameraRecorder;
+    private FileOutputStream videoStreamOutput;
+    private Context context;
+    private int videoFrameCounter = 0;
 
     private String myAddress = "1234567890";
     private AudioStreamCallback audioStreamCallback = (size, buffer) ->
@@ -57,9 +62,19 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
     public KaonicCommunicationManager(@NonNull KaonicLib kaonicLib, @NonNull ContentResolver resolver,
                                       @NonNull Ringtone ringtone, Context context) {
         super(kaonicLib);
+        this.context = context;
         this.contentResolver = resolver;
         callHandler.initHandler(audioStreamCallback, ringtone);
         cameraRecorder = new CameraRecorder(context, this::onVideoFrameReceived);
+
+        // Initialize video stream output file
+        try {
+            File videoFile = new File(context.getExternalFilesDir(null), "received_video_stream.ts");
+            videoStreamOutput = new FileOutputStream(videoFile, true); // append mode
+            Log.i(TAG, "Video stream file created: " + videoFile.getAbsolutePath());
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to create video stream file: " + e.getMessage());
+        }
 
         kaonicLib.setEventListener(new KaonicLib.EventListener() {
             @Override
@@ -98,6 +113,16 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
     @Keep
     public void onDestroy() {
         kaonicLib.removeChannelListener();
+
+        // Close video stream file
+        if (videoStreamOutput != null) {
+            try {
+                videoStreamOutput.close();
+                Log.i(TAG, "Video stream file closed");
+            } catch (IOException e) {
+                Log.e(TAG, "Failed to close video stream file: " + e.getMessage());
+            }
+        }
     }
 
     public void setEventListener(KaonicEventListener eventListener) {
@@ -193,6 +218,7 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
 
     //region video methods
     public void startVideoStream(String address, String callId) {
+        videoFrameCounter = 0;
         cameraRecorder.startRecording(address, callId);
     }
 
@@ -360,6 +386,17 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
 
     private void kaonicOnVideoFrameReceived(String address, String callId, byte[] buffer) {
         Log.i(TAG, "OnVideoFrameReceived " + address + " " + address + " " + callId + " buffer[" + buffer.length + "]");
+
+        // Write video frame data to .ts file
+//        if (videoStreamOutput != null && buffer != null && buffer.length > 0) {
+//            try {
+//                videoStreamOutput.write(buffer);
+//                videoStreamOutput.flush();
+//                Log.d(TAG, "Written " + buffer.length + " bytes to video stream file");
+//            } catch (IOException e) {
+//                Log.e(TAG, "Failed to write video frame to file: " + e.getMessage());
+//            }
+//        }
         KaonicEvent<VideoFrameReceived> kaonicEvent = new KaonicEvent<>(KaonicEventType.VIDEO_FRAME_RECEIVED,
                 new VideoFrameReceived(address, callId, buffer));
         if (eventListener != null) {
@@ -368,6 +405,18 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
     }
 
     private void onVideoFrameReceived(String address, String callId, byte[] data) {
+        // Write video frame data to .ts file
+//        if (videoStreamOutput != null && data != null && data.length > 0) {
+//            try {
+//                videoStreamOutput.write(data);
+//                videoStreamOutput.flush();
+//                Log.d(TAG, "Written " + data.length + " bytes to video stream file");
+//            } catch (IOException e) {
+//                Log.e(TAG, "Failed to write video frame to file: " + e.getMessage());
+//            }
+//        }
+        videoFrameCounter++;
+        Log.i(TAG, "videoFrameCounter = " + videoFrameCounter);
         kaonicLib.sendCallVideo(address, callId, data);
     }
 

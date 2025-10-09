@@ -10,25 +10,53 @@ public class TSMuxer {
     private static final int TS_PACKET_SIZE = 188;
     private static final int PID_VIDEO = 0x100;
     private static final int STREAM_ID_H264 = 0xE0;
+    private static final int PACKETS_PER_BATCH = 5;
 
     private final AtomicInteger continuityCounter = new AtomicInteger(0);
     private final FrameListener listener;
+    private final List<byte[]> packetBuffer = new ArrayList<>();
 
     public interface FrameListener {
-        void onFrameReceived(byte[] tsPacket);
+        void onFrameReceived(byte[] combinedTsPackets);
     }
 
     public TSMuxer(FrameListener listener) {
         this.listener = listener;
     }
 
-    public void muxNALUnit(byte[] nalUnit, long pts, long dts) {
+    public synchronized void muxNALUnit(byte[] nalUnit, long pts, long dts) {
         byte[] pes = createPESPacket(nalUnit, pts, dts);
         List<byte[]> tsPackets = packetize(pes);
 
-        for (byte[] ts : tsPackets) {
-            listener.onFrameReceived(ts);
+        for (int i = 0; i < tsPackets.size(); i++) {
+            listener.onFrameReceived(tsPackets.get(i));
+            try {
+                Thread.sleep(15);
+            } catch (Exception e) {
+
+            }
         }
+    }
+
+
+    public synchronized void flush() {
+        // Send any remaining packets in buffer
+        if (!packetBuffer.isEmpty()) {
+            byte[] combinedPackets = combinePackets(packetBuffer);
+            listener.onFrameReceived(combinedPackets);
+            packetBuffer.clear();
+        }
+    }
+
+    private byte[] combinePackets(List<byte[]> packets) {
+        int totalSize = packets.size() * TS_PACKET_SIZE;
+        byte[] combined = new byte[totalSize];
+
+        for (int i = 0; i < packets.size(); i++) {
+            System.arraycopy(packets.get(i), 0, combined, i * TS_PACKET_SIZE, TS_PACKET_SIZE);
+        }
+
+        return combined;
     }
 
     private byte[] createPESPacket(byte[] nalUnit, long pts, long dts) {

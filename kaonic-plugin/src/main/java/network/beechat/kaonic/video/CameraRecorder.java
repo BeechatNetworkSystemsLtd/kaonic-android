@@ -5,6 +5,7 @@ import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.util.Size;
+import android.view.Surface;
 
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
@@ -56,8 +57,8 @@ public class CameraRecorder {
         encoder = MediaCodec.createEncoderByType("video/avc");
 
         MediaFormat format = MediaFormat.createVideoFormat("video/avc", width, height);
-        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
         format.setInteger(MediaFormat.KEY_BIT_RATE, 2_000_000);
+        format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
         format.setInteger(MediaFormat.KEY_FRAME_RATE, framerate);
         format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
 
@@ -73,6 +74,7 @@ public class CameraRecorder {
 
                 ImageAnalysis analysis = new ImageAnalysis.Builder()
                         .setTargetResolution(new Size(width, height))
+                        .setTargetRotation(Surface.ROTATION_270)
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
@@ -97,8 +99,14 @@ public class CameraRecorder {
         ImageProxy.PlaneProxy[] planes = image.getPlanes();
         if (planes.length < 3) return;
 
+        // Get the image rotation
+        int rotation = image.getImageInfo().getRotationDegrees();
+        
         byte[] nv21 = yuv420ToNV21(planes);
-
+        
+        // If image is rotated 90 or 270 degrees, we might need to handle it
+        // For now, let's try with the corrected camera configuration
+        
         int inputBufferIndex = encoder.dequeueInputBuffer(0);
         if (inputBufferIndex >= 0) {
             ByteBuffer inputBuffer = encoder.getInputBuffer(inputBufferIndex);
@@ -125,7 +133,6 @@ public class CameraRecorder {
                     long pts = (System.nanoTime() / 1000) * 90 / 1000;
                     long dts = pts;
                     tsMuxerOld.muxNALUnit(data, pts, dts);
-//                    videoStreamListener.onFrameReceived(address, callId, data);
                 }
                 encoder.releaseOutputBuffer(outputIndex, false);
             } else {
@@ -154,7 +161,7 @@ public class CameraRecorder {
             pos += width;
         }
 
-        // Copy interleaved VU (NV21)
+        // Copy interleaved UV (NV21)
         int chromaHeight = height / 2;
         int chromaWidth = width / 2;
 
@@ -162,8 +169,8 @@ public class CameraRecorder {
             int uvRowStart = row * uvRowStride;
             for (int col = 0; col < chromaWidth; col++) {
                 int uvOffset = uvRowStart + col * uvPixelStride;
-                out[pos++] = vBuffer.get(uvOffset); // V
                 out[pos++] = uBuffer.get(uvOffset); // U
+                out[pos++] = vBuffer.get(uvOffset); // V
             }
         }
 
