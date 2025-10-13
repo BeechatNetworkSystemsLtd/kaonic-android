@@ -7,8 +7,8 @@ import android.view.Surface;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class MpegTsDecoder {
     private static final String TAG = "MpegTsDecoder";
@@ -16,16 +16,20 @@ public class MpegTsDecoder {
 
     private final MediaCodec decoder;
     private final TSPacketParser tsParser;
-    private final List<Byte> nalBuffer = new ArrayList<>();
+    private final BlockingQueue<byte[]> frameQueue = new LinkedBlockingQueue<>();
+    private final Thread decodeThread;
+    private volatile boolean running = true;
 
     public MpegTsDecoder(Surface outputSurface, int width, int height) throws IOException {
         decoder = MediaCodec.createDecoderByType("video/avc");
-
         MediaFormat format = MediaFormat.createVideoFormat("video/avc", width, height);
         decoder.configure(format, outputSurface, null, 0);
         decoder.start();
 
         tsParser = new TSPacketParser();
+
+        decodeThread = new Thread(this::decodeLoop);
+        decodeThread.start();
     }
 
     public void onPacketReceived(byte[] tsPacket) {
@@ -33,14 +37,26 @@ public class MpegTsDecoder {
 
         byte[] nalUnit = tsParser.parsePacket(tsPacket);
         if (nalUnit != null) {
-            decodeNAL(nalUnit);
+            frameQueue.offer(nalUnit); // enqueue for decoding
         }
+    }
 
-        drainDecoder();
+    private void decodeLoop() {
+        while (running) {
+            try {
+                byte[] nal = frameQueue.take(); // blocks until available
+                decodeNAL(nal);
+                drainDecoder();
+
+            } catch (InterruptedException e) {
+                Log.w(TAG, "Decoder thread interrupted");
+                break;
+            }
+        }
     }
 
     private void decodeNAL(byte[] nal) {
-        int inIndex = decoder.dequeueInputBuffer(0);
+        int inIndex = decoder.dequeueInputBuffer(10000);
         if (inIndex >= 0) {
             ByteBuffer inBuf = decoder.getInputBuffer(inIndex);
             if (inBuf != null) {
@@ -56,7 +72,7 @@ public class MpegTsDecoder {
         while (true) {
             int outIndex = decoder.dequeueOutputBuffer(info, 0);
             if (outIndex >= 0) {
-                decoder.releaseOutputBuffer(outIndex, true); // render to surface
+                decoder.releaseOutputBuffer(outIndex, true);
             } else {
                 break;
             }
@@ -64,6 +80,8 @@ public class MpegTsDecoder {
     }
 
     public void stop() {
+        running = false;
+        decodeThread.interrupt();
         decoder.stop();
         decoder.release();
     }

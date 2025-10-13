@@ -26,7 +26,6 @@ class VideoStreamViewModel(
     private val callId: String,
     private val videoStreamingService: VideoStreamingService
 ) : ViewModel() {
-    private val videoDecoder = VideoStreamDecoder()
     var decoder: MpegTsDecoder? = null
 
     init {

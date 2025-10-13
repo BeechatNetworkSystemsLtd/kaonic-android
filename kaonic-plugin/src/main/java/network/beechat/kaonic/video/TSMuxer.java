@@ -30,11 +30,11 @@ public class TSMuxer {
 
         for (int i = 0; i < tsPackets.size(); i++) {
             listener.onFrameReceived(tsPackets.get(i));
-            try {
-                Thread.sleep(15);
-            } catch (Exception e) {
-
-            }
+//            try {
+//                Thread.sleep(15);
+//            } catch (Exception e) {
+//
+//            }
         }
     }
 

@@ -19,6 +19,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class CameraRecorder {
     private final Context context;
@@ -77,8 +79,8 @@ public class CameraRecorder {
                         .setTargetRotation(Surface.ROTATION_270)
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
-
-                analysis.setAnalyzer(executor, image -> {
+                ExecutorService encoderExecutor = Executors.newSingleThreadExecutor();
+                analysis.setAnalyzer(encoderExecutor, image -> {
                     encodeImage(image);
                     image.close();
                 });
