@@ -38,7 +38,7 @@ import network.beechat.kaonic.models.messages.MessageFileStartEvent;
 import network.beechat.kaonic.models.messages.MessageLocationEvent;
 import network.beechat.kaonic.models.messages.MessageTextEvent;
 import network.beechat.kaonic.models.video.VideoFrameReceived;
-import network.beechat.kaonic.video.CameraRecorder;
+import network.beechat.kaonic.video.sender.CameraRecorder;
 
 @Keep
 public class KaonicCommunicationManager extends KaonicBaseManager {
@@ -51,7 +51,6 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
     private CameraRecorder cameraRecorder;
     private FileOutputStream videoStreamOutput;
     private Context context;
-    private int videoFrameCounter = 0;
 
     private String myAddress = "1234567890";
     private AudioStreamCallback audioStreamCallback = (size, buffer) ->
@@ -218,7 +217,6 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
 
     //region video methods
     public void startVideoStream(String address, String callId) {
-        videoFrameCounter = 0;
         cameraRecorder.startRecording(address, callId);
     }
 
@@ -415,8 +413,6 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
 //                Log.e(TAG, "Failed to write video frame to file: " + e.getMessage());
 //            }
 //        }
-        videoFrameCounter++;
-        Log.i(TAG, "videoFrameCounter = " + videoFrameCounter);
         kaonicLib.sendCallVideo(address, callId, data);
     }
 
