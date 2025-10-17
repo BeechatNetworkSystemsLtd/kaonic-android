@@ -7,6 +7,7 @@
 
 /local.properties
 /kaonic-plugin/kaonic/target/
+/kaonic-plugin/gst-android-build/
 .gradle/8.11.1
 .gradle/buildOutputCleanup
 .gradle/vcs-1
@@ -14,6 +15,7 @@
 .gradle/file-system.probe
 
 kaonic-sample/release
+
 
 **/.DS_Store
 
