@@ -79,20 +79,32 @@ Java_network_beechat_kaonic_video_ReceiverPipelineManager_nativeInit(JNIEnv *env
 JNIEXPORT void JNICALL
 Java_network_beechat_kaonic_video_ReceiverPipelineManager_nativePush(JNIEnv *env, jobject thiz, jlong handle, jbyteArray data, jint length) {
     ReceiverContext *ctx = (ReceiverContext *)(intptr_t)handle;
-    if (!ctx || !ctx->appsrc) return;
+    if (!ctx || !ctx->appsrc || length <= 0) return;
+
+    static GstClockTime pts = 0;
+    static GstClockTime last_push_time = 0;
+    const GstClockTime frame_duration = gst_util_uint64_scale_int(1, GST_SECOND, 30); // 30 fps
+
+    GstClockTime now = gst_util_get_timestamp();
+    GstClockTime delta = now - last_push_time;
+    last_push_time = now;
 
     GstBuffer *buffer = gst_buffer_new_allocate(NULL, length, NULL);
     GstMapInfo map;
-
     gst_buffer_map(buffer, &map, GST_MAP_WRITE);
     (*env)->GetByteArrayRegion(env, data, 0, length, (jbyte *)map.data);
     gst_buffer_unmap(buffer, &map);
 
-    GST_BUFFER_PTS(buffer) = gst_util_get_timestamp();
-    GST_BUFFER_DTS(buffer) = GST_BUFFER_PTS(buffer);
-    GST_BUFFER_DURATION(buffer) = gst_util_uint64_scale_int(1, GST_SECOND, 30); // Assume 30fps
+    // Assign fixed-step PTS/DTS to avoid jitter/skew
+    GST_BUFFER_PTS(buffer) = pts;
+    GST_BUFFER_DTS(buffer) = pts;
+    GST_BUFFER_DURATION(buffer) = frame_duration;
+    pts += frame_duration;
 
-    gst_app_src_push_buffer(GST_APP_SRC(ctx->appsrc), buffer);
+    GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(ctx->appsrc), buffer);
+    if (ret != GST_FLOW_OK) {
+//        __android_log_print(ANDROID_LOG_ERROR, "GStreamerPush", "Failed to push buffer: %d", ret);
+    }
 }
 
 JNIEXPORT void JNICALL

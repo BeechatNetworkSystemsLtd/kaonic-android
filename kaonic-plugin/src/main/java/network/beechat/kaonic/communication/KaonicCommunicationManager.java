@@ -383,7 +383,7 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
     }
 
     private void kaonicOnVideoFrameReceived(String address, String callId, byte[] buffer) {
-        Log.i(TAG, "OnVideoFrameReceived " + address + " " + address + " " + callId + " buffer[" + buffer.length + "]");
+//        Log.i(TAG, "OnVideoFrameReceived " + address + " " + address + " " + callId + " buffer[" + buffer.length + "]");
 
         // Write video frame data to .ts file
 //        if (videoStreamOutput != null && buffer != null && buffer.length > 0) {

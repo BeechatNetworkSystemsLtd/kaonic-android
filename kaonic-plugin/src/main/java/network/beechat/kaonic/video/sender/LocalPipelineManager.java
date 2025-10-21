@@ -2,12 +2,14 @@ package network.beechat.kaonic.video.sender;
 
 import android.util.Log;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
 
 public class LocalPipelineManager {
     private static final String TAG = "LocalPipelineManager";
+    ByteArrayOutputStream packetBuffer = new ByteArrayOutputStream();
 
     private final String host="127.0.0.1";
     private Thread socketThread;
@@ -30,27 +32,42 @@ public class LocalPipelineManager {
         }
 
         isRunning = true;
-
+        packetBuffer.reset();
         socketThread = new Thread(() -> {
             try (Socket socket = new Socket(host, 5005);
                  InputStream inputStream = socket.getInputStream()) {
 
                 Log.i(TAG, "Connected to pipeline at " + host + ":" + "5005");
 
-                byte[] buffer = new byte[4096];
+                byte[] readBuffer = new byte[4096];
                 int bytesRead;
 
-                while (isRunning && (bytesRead = inputStream.read(buffer)) != -1) {
-//                    if (listener != null && bytesRead > 0) {
-//                        listener.onBytesReceived(buffer, bytesRead);
-//                    }
-                    int offset = 0;
-                    while (offset < bytesRead) {
-                        int chunkSize = Math.min(1024, bytesRead - offset);
-                        byte[] chunk = new byte[chunkSize];
-                        System.arraycopy(buffer, offset, chunk, 0, chunkSize);
-                        listener.onBytesReceived(chunk, chunkSize);
-                        offset += chunkSize;
+                while (isRunning && (bytesRead = inputStream.read(readBuffer)) != -1) {
+                    if (bytesRead > 0) {
+                        packetBuffer.write(readBuffer, 0, bytesRead);
+
+                        byte[] fullData = packetBuffer.toByteArray();
+                        int offset = 0;
+                        int totalLength = fullData.length;
+
+                        while (totalLength - offset >= 188) {
+                            byte[] tsPacket = new byte[188];
+                            System.arraycopy(fullData, offset, tsPacket, 0, 188);
+
+                            // --- MPEG-TS header logging ---
+
+
+                            // --- forward to listener ---
+                            listener.onBytesReceived(tsPacket, 188);
+
+                            offset += 188;
+                        }
+
+                        // Keep remaining partial bytes
+                        packetBuffer.reset();
+                        if (offset < fullData.length) {
+                            packetBuffer.write(fullData, offset, fullData.length - offset);
+                        }
                     }
                 }
 
