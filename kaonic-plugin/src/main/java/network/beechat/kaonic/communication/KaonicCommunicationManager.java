@@ -59,12 +59,12 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
 
 
     public KaonicCommunicationManager(@NonNull KaonicLib kaonicLib, @NonNull ContentResolver resolver,
-                                      @NonNull Ringtone ringtone, Context context) {
+                                      @NonNull Ringtone ringtone, Context context, int cameraRotation) {
         super(kaonicLib);
         this.context = context;
         this.contentResolver = resolver;
         callHandler.initHandler(audioStreamCallback, ringtone);
-        cameraRecorder = new CameraRecorder(context, this::onVideoFrameReceived);
+        cameraRecorder = new CameraRecorder(context, this::onVideoFrameReceived, cameraRotation);
 
         // Initialize video stream output file
         try {

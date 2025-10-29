@@ -151,6 +151,7 @@ pub struct ConnectionInfo {
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", content = "info")]
 pub enum Connection {
+    UdpClient(ConnectionInfo),
     TcpClient(ConnectionInfo),
     KaonicClient(ConnectionInfo),
 }

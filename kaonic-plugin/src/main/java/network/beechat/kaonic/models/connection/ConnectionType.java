@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 @JsonFormat(shape = JsonFormat.Shape.STRING)
 @Keep
 public enum ConnectionType {
+    UdpClient,
     TcpClient,
     KaonicClient
 }

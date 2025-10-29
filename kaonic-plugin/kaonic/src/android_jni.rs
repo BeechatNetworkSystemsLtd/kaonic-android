@@ -13,6 +13,7 @@ use reticulum::identity::PrivateIdentity;
 use reticulum::iface::kaonic::kaonic_grpc::KaonicGrpc;
 use reticulum::iface::kaonic::RadioConfig;
 use reticulum::iface::tcp_client::TcpClient;
+use reticulum::iface::udp::UdpInterface;
 
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Runtime;
@@ -702,6 +703,15 @@ async fn messenger_task(
     // Setup all interfaces
     for connection in &config.connections {
         match connection {
+            Connection::UdpClient(info) => {
+                log::debug!("> add udp client interface: {} <", info.address);
+                messenger
+                    .iface_manager()
+                    .await
+                    .lock()
+                    .await
+                    .spawn(UdpInterface::new(info.address.clone(), None), UdpInterface::spawn);
+            }
             Connection::TcpClient(info) => {
                 log::debug!("> add tcp client interface: {} <", info.address);
                 messenger

@@ -2,7 +2,6 @@ package network.beechat.kaonic.sampleapp
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.media.Ringtone
 import android.media.RingtoneManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -104,7 +103,9 @@ class MainActivity : ComponentActivity() {
             KaonicCommunicationManager(
                 KaonicLib.getInstance(applicationContext),
                 contentResolver,
-                ringtone, this
+                ringtone, this,
+                this.windowManager.defaultDisplay
+                    .rotation
             ),
             secureStorageHelper
         )

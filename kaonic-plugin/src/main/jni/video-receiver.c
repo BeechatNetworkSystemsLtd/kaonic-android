@@ -61,8 +61,11 @@ Java_network_beechat_kaonic_video_ReceiverPipelineManager_nativeInit(JNIEnv *env
     g_object_set(ctx->appsrc,
                  "format", GST_FORMAT_TIME,
                  "stream-type", 0,
+                 "sync", FALSE,
                  "is-live", TRUE,
                  "do-timestamp", TRUE,
+                 "max-lateness", -1,
+                 "max-bytes", 1024 * 1024,
                  NULL);
 
     // Set native surface
@@ -98,8 +101,8 @@ Java_network_beechat_kaonic_video_ReceiverPipelineManager_nativePush(JNIEnv *env
     // Assign fixed-step PTS/DTS to avoid jitter/skew
     GST_BUFFER_PTS(buffer) = pts;
     GST_BUFFER_DTS(buffer) = pts;
-    GST_BUFFER_DURATION(buffer) = frame_duration;
-    pts += frame_duration;
+    GST_BUFFER_DURATION(buffer) = gst_util_uint64_scale_int(1, GST_SECOND, 30);
+    pts += GST_BUFFER_DURATION(buffer);
 
     GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(ctx->appsrc), buffer);
     if (ret != GST_FLOW_OK) {

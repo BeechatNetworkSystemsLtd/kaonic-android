@@ -39,7 +39,7 @@ public class LocalPipelineManager {
 
                 Log.i(TAG, "Connected to pipeline at " + host + ":" + "5005");
 
-                byte[] readBuffer = new byte[4096];
+                byte[] readBuffer = new byte[188*10];
                 int bytesRead;
 
                 while (isRunning && (bytesRead = inputStream.read(readBuffer)) != -1) {
@@ -47,26 +47,29 @@ public class LocalPipelineManager {
                         packetBuffer.write(readBuffer, 0, bytesRead);
 
                         byte[] fullData = packetBuffer.toByteArray();
-                        int offset = 0;
                         int totalLength = fullData.length;
-
-                        while (totalLength - offset >= 188) {
-                            byte[] tsPacket = new byte[188];
-                            System.arraycopy(fullData, offset, tsPacket, 0, 188);
-
-                            // --- MPEG-TS header logging ---
-
-
-                            // --- forward to listener ---
-                            listener.onBytesReceived(tsPacket, 188);
-
-                            offset += 188;
+                        Log.i(TAG,"totalLength read "+totalLength);
+                        
+                        // Check if we have complete TS packets (multiple of 188)
+                        int completePacketsLength = (totalLength / 188) * 188;
+                        
+                        if (completePacketsLength > 0) {
+                            // Send all complete packets at once
+                            byte[] completePackets = new byte[completePacketsLength];
+                            System.arraycopy(fullData, 0, completePackets, 0, completePacketsLength);
+                            
+                            // --- forward all packets to listener ---
+                            listener.onBytesReceived(completePackets, completePacketsLength);
+                            
+                            Log.d(TAG, "Sent " + (completePacketsLength / 188) + " TS packets (" + completePacketsLength + " bytes)");
                         }
 
                         // Keep remaining partial bytes
                         packetBuffer.reset();
-                        if (offset < fullData.length) {
-                            packetBuffer.write(fullData, offset, fullData.length - offset);
+                        if (completePacketsLength < totalLength) {
+                            int remainingBytes = totalLength - completePacketsLength;
+                            packetBuffer.write(fullData, completePacketsLength, remainingBytes);
+                            Log.d(TAG, "Buffered " + remainingBytes + " remaining bytes");
                         }
                     }
                 }
