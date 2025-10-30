@@ -677,7 +677,8 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeGetPrese
     _obj: JObject,
     _ptr: jlong,
 ) -> jstring {
-    let json = serde_json::to_string_pretty(&RADIO_PRESETS).expect("valid json string");
+    let json = serde_json::to_string_pretty(&RADIO_PRESETS[..]).expect("valid json string");
+
 
     env.new_string(json).unwrap().into_raw()
 }

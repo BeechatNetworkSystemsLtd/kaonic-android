@@ -13,7 +13,7 @@ pub struct RadioPreset {
     phy_config: configuration_request::PhyConfig,
 }
 
-pub const RADIO_PRESETS: [RadioPreset; 9] = [
+pub const RADIO_PRESETS: [RadioPreset; 44] = [
     //
     RadioPreset {
         name: "OFDM Opt1 MCS0",
@@ -134,7 +134,7 @@ pub const RADIO_PRESETS: [RadioPreset; 9] = [
         freq: 869535,
         channel_spacing: 200,
         tx_power: 21,
-        phy_config: PhyConfig::Ofdm(RadioPhyConfigOfdm { mcs: 2, opt:2}),
+        phy_config: PhyConfig::Ofdm(RadioPhyConfigOfdm { mcs: 2, opt: 2 }),
     },
     RadioPreset {
         name: "OFDM Opt3 MCS3",
@@ -191,7 +191,7 @@ pub const RADIO_PRESETS: [RadioPreset; 9] = [
         freq: 869535,
         channel_spacing: 200,
         tx_power: 20,
-        phy_config: PhyConfig::Ofdm(RadioPhyConfigOfdm { mcs: 3, opt:3 }),
+        phy_config: PhyConfig::Ofdm(RadioPhyConfigOfdm { mcs: 3, opt: 3 }),
     },
     RadioPreset {
         name: "OFDM Opt4 MCS4",
