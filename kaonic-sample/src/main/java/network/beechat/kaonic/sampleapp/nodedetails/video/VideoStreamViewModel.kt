@@ -1,6 +1,7 @@
 package network.beechat.kaonic.sampleapp.nodedetails.video
 
 import android.media.MediaCodec
+import android.util.Log
 import android.view.Surface
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -36,7 +37,7 @@ class VideoStreamViewModel(
         // Listen to video frames and decode them
         viewModelScope.launch {
             videoStreamingService.framesFlow.collect { frameData ->
-                decoder?.onPacketReceived(frameData)
+//                decoder?.onPacketReceived(frameData)
                 decoderPipeline?.feedBytes(frameData, frameData.size)
             }
         }

@@ -119,20 +119,7 @@ public class ReceiverPipelineManager {
             nativeHandle = 0;
         }
     }
-    
-    public void flushAllBuffers() {
-        // Force flush all remaining packets (useful for debugging or cleanup)
-        for (Integer pid : pidBuffers.keySet()) {
-            TreeMap<Integer, byte[]> buffer = pidBuffers.get(pid);
-            if (buffer != null) {
-                for (byte[] packet : buffer.values()) {
-                    nativePush(nativeHandle, packet, 188);
-                }
-                buffer.clear();
-            }
-        }
-        expectedCC.clear();
-    }
+
 
     // JNI bindings
     private native long nativeInit(Surface surface);

@@ -6,9 +6,9 @@ import android.widget.Toast;
 
 import network.beechat.kaonic.video.VideoStreamListener;
 
-public class CameraRecorder implements LocalPipelineManager.ByteListener {
+public class CameraRecorder implements LocalPipelineUdpManager.ByteListener {
     private final VideoStreamListener videoStreamListener;
-    private final LocalPipelineManager localPipelineManager;
+    private final LocalPipelineUdpManager localPipelineManager;
     private GstAhc gstAhc;
     private GstAhc.State gstState;
     private String address;
@@ -18,7 +18,7 @@ public class CameraRecorder implements LocalPipelineManager.ByteListener {
     public CameraRecorder(Context context, VideoStreamListener videoStreamListener,
                           int cameraRotation) {
         this.videoStreamListener = videoStreamListener;
-        localPipelineManager = new LocalPipelineManager(this);
+        localPipelineManager = new LocalPipelineUdpManager(this);
         try {
             initGst(GstAhc.init(context),cameraRotation);
         } catch (Exception e) {

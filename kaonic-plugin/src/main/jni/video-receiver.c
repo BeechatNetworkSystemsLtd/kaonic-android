@@ -30,51 +30,76 @@ Java_network_beechat_kaonic_video_ReceiverPipelineManager_nativeInit(JNIEnv *env
     ReceiverContext *ctx = g_malloc0(sizeof(ReceiverContext));
 
     // Create pipeline elements
-    ctx->appsrc = gst_element_factory_make("appsrc", "receiver_appsrc");
+    ctx->appsrc  = gst_element_factory_make("appsrc", "receiver_appsrc");
+    GstElement *queue = gst_element_factory_make("queue", "ts_queue");
     ctx->decoder = gst_element_factory_make("decodebin", "decoder");
-    ctx->sink = gst_element_factory_make("glimagesink", "video_sink");
+    ctx->sink    = gst_element_factory_make("glimagesink", "video_sink");
 
-    if (!ctx->appsrc || !ctx->decoder || !ctx->sink) {
+    if (!ctx->appsrc || !queue || !ctx->decoder || !ctx->sink) {
         g_printerr("Failed to create GStreamer elements\n");
         return 0;
     }
 
+    // --- Create pipeline ---
     ctx->pipeline = gst_pipeline_new("receiver-pipeline");
-    gst_bin_add_many(GST_BIN(ctx->pipeline), ctx->appsrc, ctx->decoder, ctx->sink, NULL);
+    gst_bin_add_many(GST_BIN(ctx->pipeline),
+                     ctx->appsrc, queue, ctx->decoder, ctx->sink, NULL);
 
-    if (!gst_element_link(ctx->appsrc, ctx->decoder)) {
-        g_printerr("Failed to link appsrc and decoder\n");
+    // --- Link static pads ---
+    if (!gst_element_link_many(ctx->appsrc, queue, ctx->decoder, NULL)) {
+        g_printerr("Failed to link appsrc -> queue -> decoder\n");
+        gst_object_unref(ctx->pipeline);
         return 0;
     }
 
-    // Connect decodebin pad-added signal to link dynamically
+    // --- Handle decodebin dynamic pads ---
     g_signal_connect(ctx->decoder, "pad-added", G_CALLBACK(on_pad_added), ctx->sink);
 
-    // Set caps (optional, depends on stream type)
+    // --- Set caps for MPEG-TS stream ---
     GstCaps *caps = gst_caps_new_simple("video/mpegts",
                                         "systemstream", G_TYPE_BOOLEAN, TRUE,
-                                        "packetsize", G_TYPE_INT, 188, NULL);
+                                        "packetsize", G_TYPE_INT, 188,
+                                        NULL);
     gst_app_src_set_caps(GST_APP_SRC(ctx->appsrc), caps);
     gst_caps_unref(caps);
 
-    // Configure appsrc properties
-    g_object_set(ctx->appsrc,
-                 "format", GST_FORMAT_TIME,
-                 "stream-type", 0,
-                 "sync", FALSE,
-                 "is-live", TRUE,
-                 "do-timestamp", TRUE,
-                 "max-lateness", -1,
-                 "max-bytes", 1024 * 1024,
+    // --- Configure queue to absorb jitter ---
+    g_object_set(queue,
+                 "max-size-buffers", 0,
+                 "max-size-bytes", 0,
+                 "max-size-time", (guint64)2 * GST_SECOND,  // up to 2s of buffer
+                 "leaky", 2,  // drop oldest on overflow (leaky downstream)
                  NULL);
 
-    // Set native surface
+    // --- Configure appsrc for stable streaming ---
+    g_object_set(ctx->appsrc,
+                 "is-live", TRUE,
+                 "block", TRUE,
+                 "format", GST_FORMAT_TIME,
+                 "do-timestamp", TRUE,
+                 "min-latency", 0,
+                 "max-latency", (gint64)(0.5 * GST_SECOND), // allow some clock drift
+                 "stream-type", 0, // seekable=false
+                 "emit-signals", FALSE,
+                 NULL);
+
+    // --- Set up surface for rendering ---
     ANativeWindow *window = ANativeWindow_fromSurface(env, surface);
-    gst_video_overlay_set_window_handle(GST_VIDEO_OVERLAY(ctx->sink), (guintptr)window);
+    gst_video_overlay_set_window_handle(GST_VIDEO_OVERLAY(ctx->sink), (guintptr) window);
     ANativeWindow_release(window);
 
-    // Set pipeline to playing
+    // --- Optimize decoder/sink for low latency ---
+    if (g_object_class_find_property(G_OBJECT_GET_CLASS(ctx->sink), "sync")) {
+        g_object_set(ctx->sink, "sync", FALSE, NULL);
+    }
+    if (g_object_class_find_property(G_OBJECT_GET_CLASS(ctx->sink), "max-lateness")) {
+        g_object_set(ctx->sink, "max-lateness", (gint64)(20 * GST_MSECOND), NULL);
+    }
+
+    // --- Run pipeline ---
     gst_element_set_state(ctx->pipeline, GST_STATE_PLAYING);
+
+    g_print("Receiver pipeline initialized and set to PLAYING\n");
 
     return (jlong)(intptr_t)ctx;
 }
@@ -99,8 +124,8 @@ Java_network_beechat_kaonic_video_ReceiverPipelineManager_nativePush(JNIEnv *env
     gst_buffer_unmap(buffer, &map);
 
     // Assign fixed-step PTS/DTS to avoid jitter/skew
-    GST_BUFFER_PTS(buffer) = pts;
-    GST_BUFFER_DTS(buffer) = pts;
+    GST_BUFFER_PTS(buffer) = gst_util_get_timestamp();
+    GST_BUFFER_DTS(buffer) = GST_BUFFER_PTS(buffer);
     GST_BUFFER_DURATION(buffer) = gst_util_uint64_scale_int(1, GST_SECOND, 30);
     pts += GST_BUFFER_DURATION(buffer);
 

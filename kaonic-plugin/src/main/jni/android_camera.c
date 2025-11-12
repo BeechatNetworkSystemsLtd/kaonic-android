@@ -204,22 +204,29 @@ static void *app_function(void *userdata)
     GstElement *convert = gst_element_factory_make("videoconvert", "convert");
     GstElement *encoder = gst_element_factory_make("x264enc", "encoder");
     GstElement *muxer = gst_element_factory_make("mpegtsmux", "muxer");
-    GstElement *sink = gst_element_factory_make("tcpserversink", "tcp_sink");
+    GstElement *sink = gst_element_factory_make("udpsink", "udp_sink"); // <-- changed
 
     if (!ahc->ahcsrc || !ahc->filter || !convert || !encoder || !muxer || !sink) {
         g_printerr("Failed to create one or more GStreamer elements.\n");
         return NULL;
     }
 
-    // Configure capsfilter
+    // Optional caps
 //    GstCaps *caps = gst_caps_from_string("video/x-raw,format=NV12,width=640,height=480,framerate=30/1");
 //    g_object_set(ahc->filter, "caps", caps, NULL);
 //    gst_caps_unref(caps);
 
-    // Configure encoder and sink
-    g_object_set(encoder, "tune", 0x00000004, NULL); // "zerolatency" tune
-    g_object_set(encoder, "byte-stream", TRUE, NULL); // required for muxing
-    g_object_set(sink, "host", "0.0.0.0", "port", 5005, NULL);
+    // Encoder settings
+    g_object_set(encoder, "tune", 0x00000004, NULL); // "zerolatency"
+    g_object_set(encoder, "byte-stream", TRUE, NULL); // important for mpegts
+
+    // UDP sink settings
+    g_object_set(sink,
+                 "host", "127.0.0.1",  // change to receiver IP if needed
+                 "port", 5005,
+                 "sync", FALSE,
+                 "async", FALSE,
+                 NULL);
 
     ahc->pipeline = gst_pipeline_new("camera-pipeline");
 
