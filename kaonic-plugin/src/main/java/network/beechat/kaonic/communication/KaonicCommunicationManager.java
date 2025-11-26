@@ -14,6 +14,7 @@ import org.json.JSONObject;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -107,8 +108,16 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
         return myAddress;
     }
 
-    public void sendConfig(String  jsonConfig) {
+    public void sendConfig(String jsonConfig) {
         kaonicLib.sendConfig(jsonConfig);
+    }
+
+    public void sendContactWhitelist(ArrayList<String> contacts){
+        try {
+            kaonicLib.sendContactWhitelist(objectMapper.writeValueAsString(contacts));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     //region Chat methods

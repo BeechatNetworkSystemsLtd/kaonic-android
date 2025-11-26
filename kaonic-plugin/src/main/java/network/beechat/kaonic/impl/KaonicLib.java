@@ -106,6 +106,10 @@ public class KaonicLib {
         nativeConfigure(this.pointer, configJson);
     }
 
+    public void sendContactWhitelist(String contactsJson) {
+//        nativeConfigure(this.pointer, configJson);
+    }
+
     public void sendCallEvent(String eventJson) {
         if (eventJson != null) {
             nativeSendEvent(this.pointer, eventJson);
