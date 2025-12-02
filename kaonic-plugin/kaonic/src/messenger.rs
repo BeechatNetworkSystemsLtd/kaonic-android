@@ -38,7 +38,9 @@ struct MessengerHandler<T: Platform> {
     platform: Arc<Mutex<T>>,
     known_ids: CacheSet<String>,
     ack_manager: AckManager<String>,
+    whitelist: Vec<AddressHash>,
 }
+
 
 pub enum MessengerCommand {
     SendMessage(Message),
@@ -51,6 +53,7 @@ pub enum MessengerCommand {
     SendFileChunk(FileChunk),
     Broadcast(Broadcast),
     ChatCreate(ChatCreate),
+    UpdateWhitelist(Vec<AddressHash>),
 }
 
 pub struct Messenger<T: Platform> {
@@ -87,6 +90,7 @@ impl<T: Platform + Send + 'static> Messenger<T> {
             platform: Arc::new(Mutex::new(platform)),
             known_ids: CacheSet::new(512),
             ack_manager: AckManager::new(),
+            whitelist: Vec::new()
         };
 
         let handler = Arc::new(Mutex::new(handler));
@@ -170,6 +174,11 @@ impl<T: Platform> MessengerHandler<T> {
     async fn send_ack(&self, address: &AddressHash, ack: Acknowledge) {
         self.send_out(address, &Event::Acknowledge(ack)).await;
     }
+
+    fn is_whitelisted(&self, address: &AddressHash) -> bool {
+        self.whitelist.contains(address)
+    }
+
 }
 
 /// Entry point for messenger async handler's
@@ -440,6 +449,11 @@ async fn handle_commands<T: Platform + Send + 'static>(
 
                         let _ = send_ack_event(&chat.chat_id.clone(), Event::ChatCreate(chat), &address, handler.clone()).await;
                     },
+                    MessengerCommand::UpdateWhitelist(whitelist) => {
+                        let mut handler = handler.lock().await;
+                        handler.whitelist = whitelist.clone();
+                        log::info!("messenger: whitelist updated with {} contacts", whitelist.len());
+                    },
                 }
             },
         }
@@ -534,11 +548,23 @@ async fn handle_in_data<T: Platform + Send + 'static>(
     loop {
         tokio::select! {
             Ok(link_event) = link_events.recv() => {
+               log::warn!("handle_in_data destAddr={}",link_event.address_hash);
                 match link_event.event {
                     LinkEvent::Data(data) => {
-                        let event = Deserialize::deserialize(&mut Deserializer::new(data.as_slice()));
-
+                        let event: Result<Event, _> = Deserialize::deserialize(&mut Deserializer::new(data.as_slice()));
+                        
                         if let Ok(event) = event {
+                            let handler_lock = handler.lock().await;
+                            
+                            let event_address = event.address_hash();
+                            if !handler_lock.is_whitelisted(&event_address) {
+                                log::warn!("messenger: address {} not in whitelist, dropping event", event_address);
+                                drop(handler_lock);
+                                continue;
+                            }
+                            
+                            drop(handler_lock);
+
                             match event {
                                 Event::CallAudioData(call) => {
 

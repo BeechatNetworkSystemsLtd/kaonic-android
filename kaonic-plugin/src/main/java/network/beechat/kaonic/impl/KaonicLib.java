@@ -106,8 +106,8 @@ public class KaonicLib {
         nativeConfigure(this.pointer, configJson);
     }
 
-    public void sendContactWhitelist(String contactsJson) {
-//        nativeConfigure(this.pointer, configJson);
+    public void sendContactWhitelist(String[] contactsJson) {
+        nativeSendContactList(this.pointer, contactsJson);
     }
 
     public void sendCallEvent(String eventJson) {
@@ -139,6 +139,8 @@ public class KaonicLib {
     private native String nativeGetPresets(long ptr);
 
     private native void nativeConfigure(long ptr, String configJson);
+
+    private native void nativeSendContactList(long ptr, String[] contactList);
 
     private native void nativeSendEvent(long ptr, String eventJson);
 

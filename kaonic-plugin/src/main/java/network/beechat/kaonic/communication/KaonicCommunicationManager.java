@@ -113,11 +113,8 @@ public class KaonicCommunicationManager extends KaonicBaseManager {
     }
 
     public void sendContactWhitelist(ArrayList<String> contacts){
-        try {
-            kaonicLib.sendContactWhitelist(objectMapper.writeValueAsString(contacts));
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+        String[] contactArray = new String[contacts.size()];
+        kaonicLib.sendContactWhitelist(contacts.toArray(contactArray));
     }
 
     //region Chat methods

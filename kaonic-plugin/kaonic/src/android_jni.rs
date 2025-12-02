@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use jni::objects::{GlobalRef, JByteArray, JClass, JMethodID, JObject, JString, JValue};
+use jni::objects::{GlobalRef, JByteArray, JClass, JMethodID, JObject, JObjectArray, JString, JValue};
 use jni::signature::{Primitive, ReturnType};
 use jni::sys::{jlong, jstring};
 use jni::{JNIEnv, JavaVM};
@@ -514,6 +514,56 @@ pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeConfigur
         parse_json_param::<RadioConfig>(&mut env, &config_json).expect("valid kaonic config");
 
     let _ = lib.kaonic_config_send.blocking_send(radio_config);
+}
+
+#[no_mangle]
+pub extern "system" fn Java_network_beechat_kaonic_impl_KaonicLib_nativeSendContactList(
+    mut env: JNIEnv,
+    _obj: JObject,
+    ptr: jlong,
+    contacts: JObjectArray,
+) {
+    // Safety: ptr must be a valid pointer created by nativeInit
+    let lib = unsafe { &mut *(ptr as *mut KaonicLib) };
+    
+    let mut whitelist = Vec::new();
+    
+    // Get the length of the array
+    let length = match env.get_array_length(&contacts) {
+        Ok(len) => len,
+        Err(e) => {
+            log::error!("failed to get array length: {}", e);
+            return;
+        }
+    };
+    
+    // Iterate through the array and extract strings
+    for i in 0..length {
+        let obj = match env.get_object_array_element(&contacts, i) {
+            Ok(obj) => obj,
+            Err(e) => {
+                log::error!("failed to get array element {}: {}", i, e);
+                continue;
+            }
+        };
+        
+        let jstr = JString::from(obj);
+        let contact_hex: String = match env.get_string(&jstr) {
+            Ok(s) => s.into(),
+            Err(e) => {
+                log::error!("failed to convert string at index {}: {}", i, e);
+                continue;
+            }
+        };
+        
+        match AddressHash::new_from_hex_string(&contact_hex) {
+            Ok(addr) => whitelist.push(addr),
+            Err(_) => log::warn!("invalid contact address: {}", contact_hex),
+        }
+    }
+    
+    log::info!("updating whitelist with {} contacts", whitelist.len());
+    let _ = lib.cmd_send.blocking_send(MessengerCommand::UpdateWhitelist(whitelist));
 }
 
 #[no_mangle]

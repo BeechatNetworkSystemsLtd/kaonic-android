@@ -112,7 +112,7 @@ impl Event {
             Event::FileChunk(file_chunk) => AddressHash::new_from_hex_string(&file_chunk.address),
             Event::ContactConnect(connect) => AddressHash::new_from_hex_string(&connect.address),
             Event::ChatCreate(chat) => AddressHash::new_from_hex_string(&chat.address),
-            Event::Broadcast(_) => Ok(AddressHash::new_empty()),
+            Event::Broadcast(b) => AddressHash::new_from_hex_string(&b.address),
             Event::CallInvoke(call) => AddressHash::new_from_hex_string(&call.address),
             Event::CallAnswer(call) => AddressHash::new_from_hex_string(&call.address),
             Event::CallReject(call) => AddressHash::new_from_hex_string(&call.address),
