@@ -74,12 +74,10 @@ impl<T: Platform + Send + 'static> Messenger<T> {
         contact: ContactData,
         name: impl Into<String>,
         platform: T,
-    ) -> Self {
-        let transport = Transport::new(TransportConfig::new(
-            name,
-            &PrivateIdentity::new_from_rand(OsRng),
-            false,
-        ));
+    ) -> Self {let mut config = TransportConfig::new(name, &PrivateIdentity::new_from_rand(OsRng), false);
+         config.set_retransmit(true);
+
+        let transport = Transport::new(config);
 
         let (cmd_send, cmd_recv) = tokio::sync::mpsc::channel::<MessengerCommand>(1);
 
