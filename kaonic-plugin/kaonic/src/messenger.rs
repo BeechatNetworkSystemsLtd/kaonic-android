@@ -586,6 +586,7 @@ async fn handle_in_data<T: Platform + Send + 'static>(
                     },
                     LinkEvent::Activated => {},
                     LinkEvent::Closed => {},
+                    LinkEvent::Proof(_) => {},
                 }
             },
             _ = cancel.cancelled() => {
@@ -622,6 +623,7 @@ async fn handle_out_data<T: Platform + Send + 'static>(
                     },
                     LinkEvent::Activated => {},
                     LinkEvent::Closed => {},
+                    LinkEvent::Proof(_) => {},
                 }
             },
             _ = cancel.cancelled() => {
